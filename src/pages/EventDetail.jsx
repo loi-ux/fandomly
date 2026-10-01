@@ -47,7 +47,7 @@ function googleCalendarUrl(event) {
 
 export default function EventDetail() {
   const { id } = useParams();
-  const { user } = useAuth();
+  const { user, sendPasswordReset } = useAuth();
   const [event, setEvent] = useState(null);
   const [signup, setSignup] = useState(null); // { status, payment_status, qr_token, waitlisted, checked_in } | null
   const [goingCount, setGoingCount] = useState(0);
@@ -213,6 +213,11 @@ export default function EventDetail() {
         setFormError(signInError.message);
         return null;
       }
+      // They never saw the random password we signed them in with, so send
+      // a "set your password" email right away — this is also how they'll
+      // get back into this new account later (search their inbox for
+      // Fandomly's reset-password email, or use "Forgot password" on login).
+      sendPasswordReset(guestEmail.trim());
       return body.user_id;
     } catch (err) {
       setFormError(err.message);

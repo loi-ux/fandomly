@@ -65,6 +65,16 @@ export function AuthProvider({ children }) {
     return supabase.auth.signInWithPassword({ email, password });
   }
 
+  async function sendPasswordReset(email) {
+    return supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+  }
+
+  async function updatePassword(newPassword) {
+    return supabase.auth.updateUser({ password: newPassword });
+  }
+
   async function signOut() {
     return supabase.auth.signOut();
   }
@@ -88,6 +98,8 @@ export function AuthProvider({ children }) {
     signUp,
     signIn,
     signOut,
+    sendPasswordReset,
+    updatePassword,
     requestOrganizerRole,
   };
 

@@ -9,6 +9,8 @@ import Landing from "./pages/Landing";
 // initial download stays small — the rest streams in only as needed.
 const SignUp = lazy(() => import("./pages/SignUp"));
 const Login = lazy(() => import("./pages/Login"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const BrowseEvents = lazy(() => import("./pages/BrowseEvents"));
 const EventDetail = lazy(() => import("./pages/EventDetail"));
 const AttendeeDashboard = lazy(() => import("./pages/AttendeeDashboard"));
@@ -34,6 +36,8 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/events" element={<BrowseEvents />} />
           <Route path="/events/:id" element={<EventDetail />} />
           <Route path="/organizers/:id" element={<OrganizerProfile />} />
