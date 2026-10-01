@@ -64,16 +64,20 @@ export default function EventDetail() {
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestSigningUp, setGuestSigningUp] = useState(false);
+  const [uploadingProof, setUploadingProof] = useState(false);
+  const [proofError, setProofError] = useState(null);
 
   async function loadSignup() {
     if (!user) return;
     const { data } = await supabase
       .from("event_signups")
-      .select("status, payment_status, qr_token, custom_field_responses, waitlisted, checked_in")
+      .select(
+        "status, payment_status, qr_token, custom_field_responses, waitlisted, checked_in, proof_of_payment_url, proof_uploaded_at"
+      )
       .eq("event_id", id)
       .eq("attendee_id", user.id)
       .maybeSingle();
-    setSignup(data ?? null);
+    setSignup(data ? { ...data, attendee_id: user.id } : null);
     if (data?.custom_field_responses) setResponses(data.custom_field_responses);
   }
 
@@ -313,7 +317,50 @@ export default function EventDetail() {
       waitlisted: willWaitlist,
       custom_field_responses: responses,
       checked_in: false,
+      attendee_id: uid,
+      proof_of_payment_url: null,
+      proof_uploaded_at: null,
     });
+  }
+
+  async function handleProofUpload(e) {
+    const file = e.target.files?.[0];
+    const uid = signup?.attendee_id ?? user?.id;
+    if (!file || !uid) return;
+    setUploadingProof(true);
+    setProofError(null);
+    const ext = file.name.split(".").pop();
+    const path = `${id}/${uid}/proof-${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from("payment-proofs")
+      .upload(path, file, { upsert: true });
+    if (uploadError) {
+      setUploadingProof(false);
+      setProofError(uploadError.message);
+      return;
+    }
+    const proof_uploaded_at = new Date().toISOString();
+    const { error: updateError } = await supabase
+      .from("event_signups")
+      .update({ proof_of_payment_url: path, proof_uploaded_at })
+      .eq("event_id", id)
+      .eq("attendee_id", uid);
+    setUploadingProof(false);
+    if (updateError) {
+      setProofError(updateError.message);
+      return;
+    }
+    setSignup((s) => ({ ...s, proof_of_payment_url: path, proof_uploaded_at }));
+    // Fire-and-forget: the proof is already saved on their signup either
+    // way, so a failed notification email isn't worth blocking the UI on.
+    supabase.functions.invoke("send-payment-proof", {
+      body: { event_id: id, proof_path: path },
+    });
+  }
+
+  async function handleViewProof(path) {
+    const { data } = await supabase.storage.from("payment-proofs").createSignedUrl(path, 3600);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
   }
 
   async function handleSubmitReview() {
@@ -592,6 +639,51 @@ export default function EventDetail() {
                 </p>
               )}
             </div>
+
+            {signup?.proof_of_payment_url ? (
+              <div className="bg-white/60 rounded-lg p-3 mt-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium">Proof of payment sent ✓</p>
+                  <p className="text-xs text-navy/70">
+                    We emailed it to the organizer — they'll confirm your spot shortly.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleViewProof(signup.proof_of_payment_url)}
+                    className="text-xs text-sky font-medium"
+                  >
+                    View
+                  </button>
+                  <label className="text-xs text-sky font-medium cursor-pointer">
+                    {uploadingProof ? "Uploading…" : "Replace"}
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={handleProofUpload}
+                      disabled={uploadingProof}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3">
+                <label className="inline-flex items-center gap-2 text-sm font-medium bg-ink text-paper rounded-full px-4 py-2 cursor-pointer hover:bg-sky transition-colors">
+                  {uploadingProof ? "Uploading…" : "Upload proof of payment"}
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={handleProofUpload}
+                    disabled={uploadingProof}
+                    className="hidden"
+                  />
+                </label>
+                {proofError && <p className="text-danger text-xs mt-1">{proofError}</p>}
+              </div>
+            )}
+
             <p className="text-xs text-navy/70 mt-3">
               Once the organizer confirms they've received your ₱{event.price_php}, your status here will switch to "Confirmed" and you'll get your entry pass by email.
             </p>

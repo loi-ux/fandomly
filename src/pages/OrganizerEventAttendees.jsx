@@ -21,7 +21,7 @@ export default function OrganizerEventAttendees() {
 
     const { data } = await supabase
       .from("event_signups")
-      .select("attendee_id, status, payment_status, checked_in, pass_email_sent_at, custom_field_responses, waitlisted, attendee:profiles!event_signups_attendee_id_fkey(display_name, city)")
+      .select("attendee_id, status, payment_status, checked_in, pass_email_sent_at, custom_field_responses, waitlisted, proof_of_payment_url, attendee:profiles!event_signups_attendee_id_fkey(display_name, city)")
       .eq("event_id", eventId)
       .order("payment_status", { ascending: true });
     setSignups(data ?? []);
@@ -130,6 +130,15 @@ export default function OrganizerEventAttendees() {
     load();
   }
 
+  async function handleViewProof(path) {
+    const { data, error } = await supabase.storage.from("payment-proofs").createSignedUrl(path, 3600);
+    if (error) {
+      setMessage({ type: "error", text: "Couldn't open that file: " + error.message });
+      return;
+    }
+    window.open(data.signedUrl, "_blank");
+  }
+
   async function handleSendReminder(attendeeId) {
     setBusyId(attendeeId);
     setMessage(null);
@@ -233,6 +242,14 @@ export default function OrganizerEventAttendees() {
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
+                  {s.proof_of_payment_url && (
+                    <button
+                      onClick={() => handleViewProof(s.proof_of_payment_url)}
+                      className="text-sm text-sky font-medium hover:underline"
+                    >
+                      View proof
+                    </button>
+                  )}
                   <button
                     onClick={() => handleSendReminder(s.attendee_id)}
                     disabled={busyId === s.attendee_id}
