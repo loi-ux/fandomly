@@ -61,6 +61,9 @@ export default function EventDetail() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [guestName, setGuestName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestSigningUp, setGuestSigningUp] = useState(false);
 
   async function loadSignup() {
     if (!user) return;
@@ -162,14 +165,102 @@ export default function EventDetail() {
     return Boolean(event.capacity) && goingCount >= event.capacity;
   }
 
+  // Returns the signed-in user's id, or — if no one is logged in — creates
+  // a real Fandomly account on the spot from the name/email the attendee
+  // typed into the inline fields, signs them into it, and returns that new
+  // id. This is what lets someone sign up for an event without ever
+  // visiting /signup first; from that point on they're a normal logged-in
+  // attendee (can follow organizers, see "You're going ✓", etc.).
+  async function getOrCreateUserId() {
+    if (user) return user.id;
+
+    if (!guestName.trim() || !guestEmail.trim()) {
+      setFormError("Enter your name and email to sign up.");
+      return null;
+    }
+
+    setGuestSigningUp(true);
+    setFormError(null);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/guest-signup`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            email: guestEmail.trim(),
+            display_name: guestName.trim(),
+          }),
+        }
+      );
+      const body = await res.json();
+      if (!res.ok) {
+        setFormError(
+          body.error === "account_exists"
+            ? "An account already exists with that email — please log in first."
+            : body.error || "Couldn't create your account."
+        );
+        return null;
+      }
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: guestEmail.trim(),
+        password: body.password,
+      });
+      if (signInError) {
+        setFormError(signInError.message);
+        return null;
+      }
+      return body.user_id;
+    } catch (err) {
+      setFormError(err.message);
+      return null;
+    } finally {
+      setGuestSigningUp(false);
+    }
+  }
+
+  const guestFields = !user && (
+    <div className="border-2 border-ink/10 rounded-2xl p-4 mb-4 space-y-3">
+      <div>
+        <label className="text-sm font-medium">Your name</label>
+        <input
+          value={guestName}
+          onChange={(e) => setGuestName(e.target.value)}
+          className="mt-1 w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-accent focus:outline-none"
+        />
+      </div>
+      <div>
+        <label className="text-sm font-medium">Email</label>
+        <input
+          type="email"
+          value={guestEmail}
+          onChange={(e) => setGuestEmail(e.target.value)}
+          placeholder="So we can send your confirmation/pass"
+          className="mt-1 w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-accent focus:outline-none"
+        />
+      </div>
+      <p className="text-xs text-ink-soft">
+        This creates your Fandomly account automatically — no separate signup
+        needed.{" "}
+        <a href="/login" className="text-accent font-medium">
+          Already have an account? Log in
+        </a>
+      </p>
+    </div>
+  );
+
   async function handleFreeSignup(status) {
-    if (!user) return;
     if (status === "going" && !validateResponses()) return;
+    const uid = await getOrCreateUserId();
+    if (!uid) return;
     const willWaitlist = status === "going" && isFull();
     const { error } = await supabase.from("event_signups").upsert(
       {
         event_id: id,
-        attendee_id: user.id,
+        attendee_id: uid,
         status,
         custom_field_responses: responses,
         waitlisted: willWaitlist,
@@ -184,14 +275,18 @@ export default function EventDetail() {
   }
 
   async function handleReserve() {
-    if (!user) return;
     if (!validateResponses()) return;
     setReserving(true);
+    const uid = await getOrCreateUserId();
+    if (!uid) {
+      setReserving(false);
+      return;
+    }
     const willWaitlist = isFull();
     const { error } = await supabase.from("event_signups").upsert(
       {
         event_id: id,
-        attendee_id: user.id,
+        attendee_id: uid,
         status: "going",
         custom_field_responses: responses,
         waitlisted: willWaitlist,
@@ -203,7 +298,17 @@ export default function EventDetail() {
       setFormError(error.message);
       return;
     }
-    await loadSignup();
+    // Set local state directly rather than re-querying: a guest who just
+    // signed in via getOrCreateUserId() won't have their new session
+    // reflected in the `user` closure here until the next render, and
+    // loadSignup() bails out early when it doesn't see a user yet.
+    setSignup({
+      status: "going",
+      payment_status: "unpaid",
+      waitlisted: willWaitlist,
+      custom_field_responses: responses,
+      checked_in: false,
+    });
   }
 
   async function handleSubmitReview() {
@@ -434,13 +539,6 @@ export default function EventDetail() {
               "The organizer has cancelled this event."}
           </p>
         </div>
-      ) : !user ? (
-        <p className="text-ink-soft">
-          <a href="/login" className="text-accent font-medium">
-            Log in
-          </a>{" "}
-          to sign up for this event.
-        </p>
       ) : isPaid ? (
         isConfirmed ? (
           <div className="border-2 border-sage rounded-2xl p-5 text-center">
@@ -489,13 +587,16 @@ export default function EventDetail() {
           </div>
         ) : (
           <>
+            {guestFields}
             {customFieldsForm}
             <button
               onClick={handleReserve}
-              disabled={reserving}
+              disabled={reserving || guestSigningUp}
               className="bg-ink text-paper rounded-full px-5 py-2.5 font-medium hover:bg-accent transition-colors disabled:opacity-50"
             >
-              {reserving
+              {guestSigningUp
+                ? "Setting up your account…"
+                : reserving
                 ? "Reserving…"
                 : isFull()
                 ? "Join waitlist"
@@ -506,6 +607,7 @@ export default function EventDetail() {
         )
       ) : (
         <>
+          {guestFields}
           {customFieldsForm}
           {isWaitlisted ? (
             <div className="border-2 border-ink/20 rounded-2xl p-5 text-center">
@@ -518,13 +620,16 @@ export default function EventDetail() {
             <div className="flex gap-3 mb-2">
               <button
                 onClick={() => handleFreeSignup("going")}
-                className={`rounded-full px-5 py-2.5 font-medium transition-colors ${
+                disabled={guestSigningUp}
+                className={`rounded-full px-5 py-2.5 font-medium transition-colors disabled:opacity-50 ${
                   signup?.status === "going"
                     ? "bg-sage-dark text-white"
                     : "border-2 border-ink hover:border-sage hover:text-sage"
                 }`}
               >
-                {signup?.status === "going"
+                {guestSigningUp
+                  ? "Setting up your account…"
+                  : signup?.status === "going"
                   ? "You're going ✓"
                   : isFull()
                   ? "Join waitlist"
@@ -532,7 +637,8 @@ export default function EventDetail() {
               </button>
               <button
                 onClick={() => handleFreeSignup("interested")}
-                className={`rounded-full px-5 py-2.5 font-medium transition-colors ${
+                disabled={guestSigningUp}
+                className={`rounded-full px-5 py-2.5 font-medium transition-colors disabled:opacity-50 ${
                   signup?.status === "interested"
                     ? "bg-marigold text-navy"
                     : "border-2 border-ink hover:border-marigold"
