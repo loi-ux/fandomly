@@ -25,6 +25,9 @@ export default function OrganizerEventEditor() {
     lat: "",
     lng: "",
     banner_url: "",
+    banner_focal_x: 50,
+    banner_focal_y: 50,
+    accent_color: "",
     tags: [],
     status: "draft",
     is_paid: false,
@@ -35,6 +38,8 @@ export default function OrganizerEventEditor() {
     payment_qr_url: "",
     listing_fee_status: "unpaid",
     custom_fields: [],
+    custom_blocks: [],
+    content_order: ["description"],
   });
   const [saving, setSaving] = useState(false);
   const [showCancelForm, setShowCancelForm] = useState(false);
@@ -93,6 +98,12 @@ export default function OrganizerEventEditor() {
           payment_method: data.payment_method ?? "gcash",
           payment_instructions: data.payment_instructions ?? "",
           payment_qr_url: data.payment_qr_url ?? "",
+          banner_focal_x: data.banner_focal_x ?? 50,
+          banner_focal_y: data.banner_focal_y ?? 50,
+          accent_color: data.accent_color ?? "",
+          custom_blocks: data.custom_blocks ?? [],
+          content_order:
+            data.content_order?.length > 0 ? data.content_order : ["description"],
           custom_fields: (data.custom_fields ?? []).map((cf) => ({
             ...cf,
             optionsText: (cf.options ?? []).join(", "),
@@ -140,6 +151,58 @@ export default function OrganizerEventEditor() {
       ...f,
       custom_fields: f.custom_fields.filter((cf) => cf.id !== id),
     }));
+  }
+
+  function handleBannerPositionClick(e) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+    const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
+    setForm((f) => ({
+      ...f,
+      banner_focal_x: Math.min(100, Math.max(0, x)),
+      banner_focal_y: Math.min(100, Math.max(0, y)),
+    }));
+  }
+
+  function addContentBlock() {
+    const id = `block_${Date.now()}`;
+    setForm((f) => ({
+      ...f,
+      custom_blocks: [...f.custom_blocks, { id, title: "", body: "" }],
+      content_order: [...f.content_order, id],
+    }));
+  }
+
+  function updateContentBlock(id, changes) {
+    setForm((f) => ({
+      ...f,
+      custom_blocks: f.custom_blocks.map((b) => (b.id === id ? { ...b, ...changes } : b)),
+    }));
+  }
+
+  function removeContentBlock(id) {
+    setForm((f) => ({
+      ...f,
+      custom_blocks: f.custom_blocks.filter((b) => b.id !== id),
+      content_order: f.content_order.filter((key) => key !== id),
+    }));
+  }
+
+  function moveContentOrder(key, direction) {
+    setForm((f) => {
+      const order = [...f.content_order];
+      const i = order.indexOf(key);
+      const j = i + direction;
+      if (i < 0 || j < 0 || j >= order.length) return f;
+      [order[i], order[j]] = [order[j], order[i]];
+      return { ...f, content_order: order };
+    });
+  }
+
+  function contentOrderLabel(key) {
+    if (key === "description") return "Description";
+    const block = form.custom_blocks.find((b) => b.id === key);
+    return block?.title?.trim() || "Untitled section";
   }
 
   async function handleQrUpload(e) {
@@ -225,6 +288,10 @@ export default function OrganizerEventEditor() {
       payment_method: form.is_paid ? form.payment_method : null,
       payment_instructions: form.is_paid && form.payment_method !== "qr_code" ? form.payment_instructions : null,
       payment_qr_url: form.is_paid && form.payment_method === "qr_code" ? form.payment_qr_url : null,
+      banner_focal_x: form.banner_focal_x ?? 50,
+      banner_focal_y: form.banner_focal_y ?? 50,
+      accent_color: form.accent_color?.trim() ? form.accent_color.trim() : null,
+      content_order: form.content_order?.length > 0 ? form.content_order : ["description"],
       custom_fields: form.custom_fields.map(({ optionsText, ...cf }) => ({
         ...cf,
         options:
@@ -501,11 +568,34 @@ export default function OrganizerEventEditor() {
         <div>
           <label className="text-sm font-medium">Banner image</label>
           {form.banner_url && (
-            <img
-              src={form.banner_url}
-              alt="Banner preview"
-              className="mt-2 w-full h-40 object-cover rounded-xl"
-            />
+            <>
+              <button
+                type="button"
+                onClick={handleBannerPositionClick}
+                className="mt-2 w-full h-40 rounded-xl overflow-hidden relative block cursor-crosshair border-2 border-ink/15"
+                title="Click where you want the banner's focal point"
+              >
+                <img
+                  src={form.banner_url}
+                  alt="Banner preview"
+                  className="w-full h-full object-cover pointer-events-none"
+                  style={{
+                    objectPosition: `${form.banner_focal_x}% ${form.banner_focal_y}%`,
+                  }}
+                />
+                <span
+                  className="absolute w-4 h-4 rounded-full border-2 border-white bg-coral/80 shadow pointer-events-none -translate-x-1/2 -translate-y-1/2"
+                  style={{
+                    left: `${form.banner_focal_x}%`,
+                    top: `${form.banner_focal_y}%`,
+                  }}
+                />
+              </button>
+              <p className="text-xs text-ink-soft mt-1">
+                Click anywhere on the preview to set what stays visible when
+                the banner gets cropped (e.g. keep a face centered).
+              </p>
+            </>
           )}
           <input
             type="file"
@@ -517,6 +607,33 @@ export default function OrganizerEventEditor() {
           {uploadingBanner && (
             <p className="text-xs text-ink-soft mt-1">Uploading…</p>
           )}
+        </div>
+
+        <div>
+          <label className="text-sm font-medium">
+            Accent color <span className="text-ink-soft">(optional — themes your event page's buttons & links)</span>
+          </label>
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            {["", "#ff7f72", "#f4b740", "#7bc7a3", "#5b8def", "#c77bdc"].map((color) => (
+              <button
+                type="button"
+                key={color || "default"}
+                onClick={() => setForm({ ...form, accent_color: color })}
+                title={color || "Default (coral)"}
+                className={`w-8 h-8 rounded-full border-2 ${
+                  form.accent_color === color ? "border-ink" : "border-ink/15"
+                }`}
+                style={{ background: color || "linear-gradient(135deg, #ff7f72, #f4b740)" }}
+              />
+            ))}
+            <input
+              type="text"
+              value={form.accent_color}
+              onChange={update("accent_color")}
+              placeholder="or type a hex code, e.g. #e0527a"
+              className="flex-1 min-w-[160px] border-2 border-ink/15 rounded-xl px-3 py-1.5 text-sm focus:border-coral focus:outline-none"
+            />
+          </div>
         </div>
 
         <div className="border-2 border-ink/10 rounded-xl p-4">
@@ -702,6 +819,83 @@ export default function OrganizerEventEditor() {
             onChange={update("description")}
             className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-coral focus:outline-none"
           />
+        </div>
+
+        <div className="border-2 border-ink/10 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-1">
+            <p className="font-medium">Extra sections</p>
+            <button
+              type="button"
+              onClick={addContentBlock}
+              className="text-sm text-coral font-medium hover:underline"
+            >
+              + Add section
+            </button>
+          </div>
+          <p className="text-xs text-ink-soft mb-3">
+            Add more to your page — lineup/schedule, FAQ, sponsors, anything
+            else attendees should see. Use the arrows to reorder your
+            description and sections.
+          </p>
+
+          <div className="space-y-2 mb-4">
+            {form.content_order.map((key, i) => (
+              <div
+                key={key}
+                className="flex items-center gap-2 border-2 border-ink/10 rounded-lg px-3 py-2"
+              >
+                <div className="flex flex-col">
+                  <button
+                    type="button"
+                    onClick={() => moveContentOrder(key, -1)}
+                    disabled={i === 0}
+                    className="text-ink-soft hover:text-coral disabled:opacity-20 leading-none text-xs"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveContentOrder(key, 1)}
+                    disabled={i === form.content_order.length - 1}
+                    className="text-ink-soft hover:text-coral disabled:opacity-20 leading-none text-xs"
+                  >
+                    ▼
+                  </button>
+                </div>
+                <span className="text-sm flex-1">{contentOrderLabel(key)}</span>
+                {key === "description" && (
+                  <span className="text-xs text-ink-soft">built-in</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {form.custom_blocks.map((block) => (
+            <div key={block.id} className="border-2 border-ink/10 rounded-lg p-3 mb-2 space-y-2">
+              <div className="flex gap-2">
+                <input
+                  value={block.title}
+                  onChange={(e) => updateContentBlock(block.id, { title: e.target.value })}
+                  placeholder="Section title (e.g. Lineup, FAQ)"
+                  className="flex-1 border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-coral focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeContentBlock(block.id)}
+                  className="text-coral text-sm px-2"
+                >
+                  Remove
+                </button>
+              </div>
+              <textarea
+                rows={3}
+                value={block.body}
+                onChange={(e) => updateContentBlock(block.id, { body: e.target.value })}
+                placeholder="Content for this section…"
+                className="w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-coral focus:outline-none"
+              />
+            </div>
+          ))}
         </div>
 
         {error && <p className="text-coral text-sm">{error}</p>}

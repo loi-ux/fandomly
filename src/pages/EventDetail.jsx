@@ -281,13 +281,13 @@ export default function EventDetail() {
         href={googleCalendarUrl(event)}
         target="_blank"
         rel="noreferrer"
-        className="text-sm border-2 border-ink rounded-full px-4 py-2 font-medium hover:border-coral hover:text-coral transition-colors"
+        className="text-sm border-2 border-ink rounded-full px-4 py-2 font-medium hover:border-accent hover:text-accent transition-colors"
       >
         + Google Calendar
       </a>
       <button
         onClick={() => downloadIcs(event)}
-        className="text-sm border-2 border-ink rounded-full px-4 py-2 font-medium hover:border-coral hover:text-coral transition-colors"
+        className="text-sm border-2 border-ink rounded-full px-4 py-2 font-medium hover:border-accent hover:text-accent transition-colors"
       >
         Download .ics
       </button>
@@ -335,13 +335,26 @@ export default function EventDetail() {
     </div>
   );
 
+  const contentOrder = event.content_order?.length > 0 ? event.content_order : ["description"];
+  const customBlocksById = new Map((event.custom_blocks ?? []).map((b) => [b.id, b]));
+
+  const descriptionSection = event.description && (
+    <p className="whitespace-pre-wrap leading-relaxed mb-8">{event.description}</p>
+  );
+
   return (
-    <div className="max-w-2xl mx-auto px-5 py-12">
+    <div
+      className="max-w-2xl mx-auto px-5 py-12"
+      style={event.accent_color ? { "--event-accent": event.accent_color } : undefined}
+    >
       {event.banner_url && (
         <img
           src={event.banner_url}
           alt=""
           className="w-full h-56 object-cover rounded-2xl mb-6"
+          style={{
+            objectPosition: `${event.banner_focal_x ?? 50}% ${event.banner_focal_y ?? 50}%`,
+          }}
         />
       )}
 
@@ -382,17 +395,29 @@ export default function EventDetail() {
         · {event.venue}, {event.city}
       </p>
 
-      {event.description && (
-        <p className="whitespace-pre-wrap leading-relaxed mb-8">
-          {event.description}
-        </p>
-      )}
+      {contentOrder.map((key) => {
+        if (key === "description") {
+          return descriptionSection ? <div key={key}>{descriptionSection}</div> : null;
+        }
+        const block = customBlocksById.get(key);
+        if (!block || (!block.title && !block.body)) return null;
+        return (
+          <div key={key} className="mb-8">
+            {block.title && (
+              <h2 className="font-display text-xl mb-2">{block.title}</h2>
+            )}
+            {block.body && (
+              <p className="whitespace-pre-wrap leading-relaxed">{block.body}</p>
+            )}
+          </div>
+        );
+      })}
 
       <div className="stub-divider pt-8 mb-8">
         <p className="text-sm text-ink-soft mt-6">
           Organized by{" "}
           {event.organizer?.id ? (
-            <Link to={`/organizers/${event.organizer.id}`} className="text-coral font-medium">
+            <Link to={`/organizers/${event.organizer.id}`} className="text-accent font-medium">
               {event.organizer.display_name}
             </Link>
           ) : (
@@ -411,7 +436,7 @@ export default function EventDetail() {
         </div>
       ) : !user ? (
         <p className="text-ink-soft">
-          <a href="/login" className="text-coral font-medium">
+          <a href="/login" className="text-accent font-medium">
             Log in
           </a>{" "}
           to sign up for this event.
@@ -468,7 +493,7 @@ export default function EventDetail() {
             <button
               onClick={handleReserve}
               disabled={reserving}
-              className="bg-ink text-paper rounded-full px-5 py-2.5 font-medium hover:bg-coral transition-colors disabled:opacity-50"
+              className="bg-ink text-paper rounded-full px-5 py-2.5 font-medium hover:bg-accent transition-colors disabled:opacity-50"
             >
               {reserving
                 ? "Reserving…"

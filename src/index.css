@@ -47,3 +47,13 @@ body {
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
+
+/* Per-event accent color. An event page sets --event-accent inline from its
+   accent_color column; these utilities fall back to the site's coral when
+   an event hasn't picked one. */
+.text-accent { color: var(--event-accent, var(--color-coral)); }
+.bg-accent { background-color: var(--event-accent, var(--color-coral)); }
+.border-accent { border-color: var(--event-accent, var(--color-coral)); }
+.hover\:bg-accent:hover { background-color: var(--event-accent, var(--color-coral)); }
+.hover\:text-accent:hover { color: var(--event-accent, var(--color-coral)); }
+.hover\:border-accent:hover { border-color: var(--event-accent, var(--color-coral)); }
