@@ -66,6 +66,8 @@ export default function EventDetail() {
   const [guestSigningUp, setGuestSigningUp] = useState(false);
   const [uploadingProof, setUploadingProof] = useState(false);
   const [proofError, setProofError] = useState(null);
+  const [notifyingOrganizer, setNotifyingOrganizer] = useState(false);
+  const [notifyFailed, setNotifyFailed] = useState(false);
 
   async function loadSignup() {
     if (!user) return;
@@ -358,11 +360,21 @@ export default function EventDetail() {
       return;
     }
     setSignup((s) => ({ ...s, proof_of_payment_url: path, proof_uploaded_at }));
-    // Fire-and-forget: the proof is already saved on their signup either
-    // way, so a failed notification email isn't worth blocking the UI on.
-    supabase.functions.invoke("send-payment-proof", {
+    // The proof itself is already saved either way, but we wait for (and
+    // surface) the notification result rather than firing it blind — a
+    // silently-dropped request left the organizer never knowing a proof
+    // came in at all.
+    await notifyOrganizerOfProof(path);
+  }
+
+  async function notifyOrganizerOfProof(path) {
+    setNotifyingOrganizer(true);
+    setNotifyFailed(false);
+    const { error } = await supabase.functions.invoke("send-payment-proof", {
       body: { event_id: id, proof_path: path },
     });
+    setNotifyingOrganizer(false);
+    if (error) setNotifyFailed(true);
   }
 
   async function handleViewProof(path) {
@@ -648,32 +660,48 @@ export default function EventDetail() {
             </div>
 
             {signup?.proof_of_payment_url ? (
-              <div className="bg-white/60 rounded-lg p-3 mt-3 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium">Proof of payment sent ✓</p>
-                  <p className="text-xs text-navy/70">
-                    We emailed it to the organizer — they'll confirm your spot shortly.
-                  </p>
+              <div className="bg-white/60 rounded-lg p-3 mt-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">
+                      {notifyingOrganizer ? "Uploaded — notifying organizer…" : "Proof of payment uploaded ✓"}
+                    </p>
+                    <p className="text-xs text-navy/70">
+                      {notifyFailed
+                        ? "Saved, but we couldn't email the organizer automatically."
+                        : "We emailed it to the organizer — they'll confirm your spot shortly."}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleViewProof(signup.proof_of_payment_url)}
+                      className="text-xs text-sky font-medium"
+                    >
+                      View
+                    </button>
+                    <label className="text-xs text-sky font-medium cursor-pointer">
+                      {uploadingProof ? "Uploading…" : "Replace"}
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={handleProofUpload}
+                        disabled={uploadingProof}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
+                {notifyFailed && (
                   <button
                     type="button"
-                    onClick={() => handleViewProof(signup.proof_of_payment_url)}
-                    className="text-xs text-sky font-medium"
+                    onClick={() => notifyOrganizerOfProof(signup.proof_of_payment_url)}
+                    disabled={notifyingOrganizer}
+                    className="text-xs text-danger font-medium mt-2 disabled:opacity-50"
                   >
-                    View
+                    {notifyingOrganizer ? "Retrying…" : "Retry notifying organizer"}
                   </button>
-                  <label className="text-xs text-sky font-medium cursor-pointer">
-                    {uploadingProof ? "Uploading…" : "Replace"}
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      onChange={handleProofUpload}
-                      disabled={uploadingProof}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
+                )}
               </div>
             ) : (
               <div className="mt-3">

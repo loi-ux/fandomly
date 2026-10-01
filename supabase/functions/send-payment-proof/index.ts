@@ -82,7 +82,16 @@ Deno.serve(async (req) => {
     }
 
     const arrayBuffer = await fileBlob.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    // Spreading the whole byte array into String.fromCharCode(...) blows the
+    // call stack for any real phone photo (a few MB easily exceeds the
+    // argument limit) — build the binary string in chunks instead.
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    const base64 = btoa(binary);
     const filename = proof_path.split("/").pop() || "proof-of-payment";
 
     const resendRes = await fetch("https://api.resend.com/emails", {
