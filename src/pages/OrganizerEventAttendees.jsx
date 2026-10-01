@@ -219,6 +219,14 @@ export default function OrganizerEventAttendees() {
                   <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-sage-dim text-sage-dark">
                     Confirmed{s.pass_email_sent_at ? "" : " (email pending)"}
                   </span>
+                  {s.proof_of_payment_url && (
+                    <button
+                      onClick={() => handleViewProof(s.proof_of_payment_url)}
+                      className="text-xs text-sky font-medium hover:underline"
+                    >
+                      View proof
+                    </button>
+                  )}
                   {!s.pass_email_sent_at && (
                     <button
                       onClick={() => handleResendPassEmail(s.attendee_id)}
