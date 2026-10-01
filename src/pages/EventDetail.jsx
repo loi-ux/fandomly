@@ -570,22 +570,28 @@ export default function EventDetail() {
               You're holding a spot, but it's not confirmed until the
               organizer receives your payment.
             </p>
-            {event.payment_method === "qr_code" && event.payment_qr_url ? (
-              <div className="bg-white/60 rounded-lg p-3 text-center">
-                <img
-                  src={event.payment_qr_url}
-                  alt="Payment QR code"
-                  className="mx-auto w-48 h-48 object-contain mb-2"
-                />
-                {event.payment_instructions && (
-                  <p className="text-sm">{event.payment_instructions}</p>
-                )}
-              </div>
-            ) : (
-              <p className="whitespace-pre-wrap text-sm bg-white/60 rounded-lg p-3">
-                {event.payment_instructions}
-              </p>
-            )}
+            <div className="space-y-2">
+              {(event.payment_methods ?? []).includes("qr_code") && event.payment_qr_url && (
+                <div className="bg-white/60 rounded-lg p-3 text-center">
+                  <img
+                    src={event.payment_qr_url}
+                    alt="Payment QR code"
+                    className="mx-auto w-48 h-48 object-contain mb-2"
+                  />
+                  {event.qr_reference && <p className="text-sm">{event.qr_reference}</p>}
+                </div>
+              )}
+              {(event.payment_methods ?? []).includes("gcash") && event.gcash_instructions && (
+                <p className="whitespace-pre-wrap text-sm bg-white/60 rounded-lg p-3">
+                  <span className="font-medium">GCash:</span> {event.gcash_instructions}
+                </p>
+              )}
+              {(event.payment_methods ?? []).includes("bank_transfer") && event.bank_instructions && (
+                <p className="whitespace-pre-wrap text-sm bg-white/60 rounded-lg p-3">
+                  <span className="font-medium">Bank transfer:</span> {event.bank_instructions}
+                </p>
+              )}
+            </div>
             <p className="text-xs text-navy/70 mt-3">
               Once the organizer confirms they've received your ₱{event.price_php}, your status here will switch to "Confirmed" and you'll get your entry pass by email.
             </p>

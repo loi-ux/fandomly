@@ -33,8 +33,10 @@ export default function OrganizerEventEditor() {
     is_paid: false,
     price_php: "",
     capacity: "",
-    payment_method: "gcash",
-    payment_instructions: "",
+    payment_methods: [],
+    gcash_instructions: "",
+    bank_instructions: "",
+    qr_reference: "",
     payment_qr_url: "",
     listing_fee_status: "unpaid",
     custom_fields: [],
@@ -95,8 +97,10 @@ export default function OrganizerEventEditor() {
           tags: data.tags ?? [],
           price_php: data.price_php ?? "",
           capacity: data.capacity ?? "",
-          payment_method: data.payment_method ?? "gcash",
-          payment_instructions: data.payment_instructions ?? "",
+          payment_methods: data.payment_methods ?? [],
+          gcash_instructions: data.gcash_instructions ?? "",
+          bank_instructions: data.bank_instructions ?? "",
+          qr_reference: data.qr_reference ?? "",
           payment_qr_url: data.payment_qr_url ?? "",
           banner_focal_x: data.banner_focal_x ?? 50,
           banner_focal_y: data.banner_focal_y ?? 50,
@@ -260,16 +264,20 @@ export default function OrganizerEventEditor() {
       setError("Set a price for this event.");
       return null;
     }
-    if (form.is_paid && form.payment_method === "qr_code" && !form.payment_qr_url) {
+    if (form.is_paid && form.payment_methods.length === 0) {
+      setError("Choose at least one way for attendees to pay you.");
+      return null;
+    }
+    if (form.is_paid && form.payment_methods.includes("qr_code") && !form.payment_qr_url) {
       setError("Upload a QR code image so attendees know how to pay you.");
       return null;
     }
-    if (form.is_paid && form.payment_method !== "qr_code" && !form.payment_instructions.trim()) {
-      setError(
-        form.payment_method === "bank_transfer"
-          ? "Add your bank name, account name, and account number."
-          : "Add your GCash name & number so attendees know how to pay you."
-      );
+    if (form.is_paid && form.payment_methods.includes("gcash") && !form.gcash_instructions.trim()) {
+      setError("Add your GCash name & number so attendees know how to pay you.");
+      return null;
+    }
+    if (form.is_paid && form.payment_methods.includes("bank_transfer") && !form.bank_instructions.trim()) {
+      setError("Add your bank name, account name, and account number.");
       return null;
     }
     if (form.custom_fields.some((cf) => !cf.label.trim())) {
@@ -285,9 +293,21 @@ export default function OrganizerEventEditor() {
       lng: form.lng ? parseFloat(form.lng) : null,
       price_php: form.is_paid ? Number(form.price_php) : null,
       capacity: form.capacity ? Number(form.capacity) : null,
-      payment_method: form.is_paid ? form.payment_method : null,
-      payment_instructions: form.is_paid && form.payment_instructions.trim() ? form.payment_instructions.trim() : null,
-      payment_qr_url: form.is_paid && form.payment_method === "qr_code" ? form.payment_qr_url : null,
+      payment_methods: form.is_paid ? form.payment_methods : [],
+      gcash_instructions:
+        form.is_paid && form.payment_methods.includes("gcash") && form.gcash_instructions.trim()
+          ? form.gcash_instructions.trim()
+          : null,
+      bank_instructions:
+        form.is_paid && form.payment_methods.includes("bank_transfer") && form.bank_instructions.trim()
+          ? form.bank_instructions.trim()
+          : null,
+      qr_reference:
+        form.is_paid && form.payment_methods.includes("qr_code") && form.qr_reference.trim()
+          ? form.qr_reference.trim()
+          : null,
+      payment_qr_url:
+        form.is_paid && form.payment_methods.includes("qr_code") ? form.payment_qr_url : null,
       banner_focal_x: form.banner_focal_x ?? 50,
       banner_focal_y: form.banner_focal_y ?? 50,
       accent_color: form.accent_color?.trim() ? form.accent_color.trim() : null,
@@ -663,31 +683,70 @@ export default function OrganizerEventEditor() {
 
               <div>
                 <label className="text-sm font-medium">
-                  How will attendees pay you?
+                  How will attendees pay you? (choose one or more)
                 </label>
                 <div className="flex gap-2 mt-1">
                   {[
                     { value: "gcash", label: "GCash" },
                     { value: "bank_transfer", label: "Bank Transfer" },
                     { value: "qr_code", label: "QR code" },
-                  ].map((opt) => (
-                    <button
-                      type="button"
-                      key={opt.value}
-                      onClick={() => setForm({ ...form, payment_method: opt.value })}
-                      className={`text-sm px-3 py-1.5 rounded-full border-2 transition-colors ${
-                        form.payment_method === opt.value
-                          ? "bg-marigold border-marigold text-navy"
-                          : "border-ink/15 text-ink-soft hover:border-ink"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
+                  ].map((opt) => {
+                    const selected = form.payment_methods.includes(opt.value);
+                    return (
+                      <button
+                        type="button"
+                        key={opt.value}
+                        onClick={() =>
+                          setForm((f) => ({
+                            ...f,
+                            payment_methods: selected
+                              ? f.payment_methods.filter((m) => m !== opt.value)
+                              : [...f.payment_methods, opt.value],
+                          }))
+                        }
+                        className={`text-sm px-3 py-1.5 rounded-full border-2 transition-colors ${
+                          selected
+                            ? "bg-marigold border-marigold text-navy"
+                            : "border-ink/15 text-ink-soft hover:border-ink"
+                        }`}
+                      >
+                        {selected ? "✓ " : ""}
+                        {opt.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {form.payment_method === "qr_code" ? (
+              {form.payment_methods.includes("gcash") && (
+                <div>
+                  <label className="text-sm font-medium">GCash name & number</label>
+                  <textarea
+                    rows={2}
+                    value={form.gcash_instructions}
+                    onChange={update("gcash_instructions")}
+                    placeholder="GCash: Juan Dela Cruz — 0917 123 4567"
+                    className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
+                  />
+                </div>
+              )}
+
+              {form.payment_methods.includes("bank_transfer") && (
+                <div>
+                  <label className="text-sm font-medium">
+                    Bank name, account name & number
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={form.bank_instructions}
+                    onChange={update("bank_instructions")}
+                    placeholder="BDO — Juan Dela Cruz — 0012 3456 7890"
+                    className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
+                  />
+                </div>
+              )}
+
+              {form.payment_methods.includes("qr_code") && (
                 <div>
                   <label className="text-sm font-medium">QR code image</label>
                   {form.payment_qr_url && (
@@ -706,29 +765,10 @@ export default function OrganizerEventEditor() {
                   />
                   {uploadingQr && <p className="text-xs text-ink-soft mt-1">Uploading…</p>}
                   <input
-                    value={form.payment_instructions}
-                    onChange={update("payment_instructions")}
+                    value={form.qr_reference}
+                    onChange={update("qr_reference")}
                     placeholder="Optional: account name for reference"
                     className="mt-2 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
-                  />
-                </div>
-              ) : (
-                <div>
-                  <label className="text-sm font-medium">
-                    {form.payment_method === "bank_transfer"
-                      ? "Bank name, account name & number"
-                      : "GCash name & number"}
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={form.payment_instructions}
-                    onChange={update("payment_instructions")}
-                    placeholder={
-                      form.payment_method === "bank_transfer"
-                        ? "BDO — Juan Dela Cruz — 0012 3456 7890"
-                        : "GCash: Juan Dela Cruz — 0917 123 4567"
-                    }
-                    className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
                   />
                 </div>
               )}

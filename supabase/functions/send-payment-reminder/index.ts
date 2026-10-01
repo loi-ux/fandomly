@@ -36,7 +36,9 @@ Deno.serve(async (req) => {
 
     const { data: event } = await admin
       .from("events")
-      .select("id, title, event_date, price_php, payment_method, payment_instructions, payment_qr_url, organizer_id")
+      .select(
+        "id, title, event_date, price_php, payment_methods, gcash_instructions, bank_instructions, qr_reference, payment_qr_url, organizer_id"
+      )
       .eq("id", event_id)
       .single();
     const { data: callerProfile } = await admin
@@ -82,18 +84,36 @@ Deno.serve(async (req) => {
       timeStyle: "short",
     });
 
-    // How to pay differs by method: a QR event's real payment info is the
-    // scannable image (payment_instructions there is just an optional
-    // reference name), while bank/GCash events rely entirely on the text.
-    const paymentBlock =
-      event.payment_method === "qr_code" && event.payment_qr_url
-        ? `
-          <p>Scan this QR code to pay${event.payment_instructions ? ` (${event.payment_instructions})` : ""}:</p>
+    // An event can offer several ways to pay at once, so stack a block
+    // per method the organizer actually configured.
+    const methods: string[] = event.payment_methods ?? [];
+    const blocks: string[] = [];
+    if (methods.includes("qr_code") && event.payment_qr_url) {
+      blocks.push(`
+        <div style="margin-bottom:12px;">
+          <p style="margin:0 0 6px;">Scan this QR code to pay${event.qr_reference ? ` (${event.qr_reference})` : ""}:</p>
           <img src="${event.payment_qr_url}" alt="Payment QR code" width="220" height="220" style="display:block;border-radius:8px;" />
-        `
-        : `
-          <p style="background:#f4f4f4;padding:12px;border-radius:8px;">${event.payment_instructions ?? "Contact the organizer for payment details."}</p>
-        `;
+        </div>
+      `);
+    }
+    if (methods.includes("gcash") && event.gcash_instructions) {
+      blocks.push(`
+        <p style="background:#f4f4f4;padding:12px;border-radius:8px;margin:0 0 12px;">
+          <strong>GCash:</strong><br />${event.gcash_instructions.replace(/\n/g, "<br />")}
+        </p>
+      `);
+    }
+    if (methods.includes("bank_transfer") && event.bank_instructions) {
+      blocks.push(`
+        <p style="background:#f4f4f4;padding:12px;border-radius:8px;margin:0 0 12px;">
+          <strong>Bank transfer:</strong><br />${event.bank_instructions.replace(/\n/g, "<br />")}
+        </p>
+      `);
+    }
+    const paymentBlock =
+      blocks.length > 0
+        ? blocks.join("")
+        : `<p style="background:#f4f4f4;padding:12px;border-radius:8px;">Contact the organizer for payment details.</p>`;
 
     const resendRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
