@@ -347,20 +347,20 @@ export default function EventDetail() {
         <div key={field.id}>
           <label className="text-sm font-medium">
             {field.label}
-            {field.required && <span className="text-coral"> *</span>}
+            {field.required && <span className="text-danger"> *</span>}
           </label>
           {field.type === "textarea" ? (
             <textarea
               rows={2}
               value={responses[field.id] ?? ""}
               onChange={(e) => setResponses({ ...responses, [field.id]: e.target.value })}
-              className="mt-1 w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-coral focus:outline-none"
+              className="mt-1 w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-sky focus:outline-none"
             />
           ) : field.type === "select" ? (
             <select
               value={responses[field.id] ?? ""}
               onChange={(e) => setResponses({ ...responses, [field.id]: e.target.value })}
-              className="mt-1 w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-coral focus:outline-none"
+              className="mt-1 w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-sky focus:outline-none"
             >
               <option value="">Select…</option>
               {field.options?.map((opt) => (
@@ -371,12 +371,12 @@ export default function EventDetail() {
             <input
               value={responses[field.id] ?? ""}
               onChange={(e) => setResponses({ ...responses, [field.id]: e.target.value })}
-              className="mt-1 w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-coral focus:outline-none"
+              className="mt-1 w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-sky focus:outline-none"
             />
           )}
         </div>
       ))}
-      {formError && <p className="text-coral text-sm">{formError}</p>}
+      {formError && <p className="text-danger text-sm">{formError}</p>}
     </div>
   );
 
@@ -426,12 +426,12 @@ export default function EventDetail() {
             value={reviewComment}
             onChange={(e) => setReviewComment(e.target.value)}
             placeholder="Optional comment about the organizer/event…"
-            className="w-full border-2 border-ink/15 rounded-xl px-3 py-2 mb-3 focus:border-coral focus:outline-none"
+            className="w-full border-2 border-ink/15 rounded-xl px-3 py-2 mb-3 focus:border-sky focus:outline-none"
           />
           <button
             onClick={handleSubmitReview}
             disabled={submittingReview}
-            className="bg-ink text-paper rounded-full px-5 py-2 text-sm font-medium hover:bg-coral transition-colors disabled:opacity-50"
+            className="bg-ink text-paper rounded-full px-5 py-2 text-sm font-medium hover:bg-sky transition-colors disabled:opacity-50"
           >
             {submittingReview ? "Submitting…" : "Submit review"}
           </button>
@@ -532,8 +532,8 @@ export default function EventDetail() {
       </div>
 
       {event.status === "cancelled" ? (
-        <div className="border-2 border-coral bg-coral/10 rounded-2xl p-5">
-          <p className="font-display text-lg text-coral mb-2">This event was cancelled</p>
+        <div className="border-2 border-danger bg-danger/10 rounded-2xl p-5">
+          <p className="font-display text-lg text-danger mb-2">This event was cancelled</p>
           <p className="whitespace-pre-wrap">
             {event.cancellation_message ||
               "The organizer has cancelled this event."}
@@ -602,7 +602,7 @@ export default function EventDetail() {
                 ? "Join waitlist"
                 : `Reserve my spot — ₱${event.price_php}`}
             </button>
-            {formError && <p className="text-coral text-sm mt-2">{formError}</p>}
+            {formError && <p className="text-danger text-sm mt-2">{formError}</p>}
           </>
         )
       ) : (
@@ -648,7 +648,7 @@ export default function EventDetail() {
               </button>
             </div>
           )}
-          {formError && <p className="text-coral text-sm">{formError}</p>}
+          {formError && <p className="text-danger text-sm">{formError}</p>}
           {calendarButtons}
         </>
       )}

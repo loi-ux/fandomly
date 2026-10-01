@@ -148,7 +148,7 @@ export default function OrganizerEventAttendees() {
 
   return (
     <div className="max-w-3xl mx-auto px-5 py-12">
-      <Link to="/organizer" className="text-sm text-ink-soft hover:text-coral">
+      <Link to="/organizer" className="text-sm text-ink-soft hover:text-sky">
         ← My events
       </Link>
       <h1 className="font-display text-3xl mt-2 mb-1">{event.title}</h1>
@@ -173,7 +173,7 @@ export default function OrganizerEventAttendees() {
       })()}
 
       {message && (
-        <p className={`text-sm mb-4 ${message.type === "error" ? "text-coral" : "text-sage"}`}>
+        <p className={`text-sm mb-4 ${message.type === "error" ? "text-danger" : "text-sage"}`}>
           {message.text}
         </p>
       )}
@@ -214,7 +214,7 @@ export default function OrganizerEventAttendees() {
                     <button
                       onClick={() => handleResendPassEmail(s.attendee_id)}
                       disabled={busyId === s.attendee_id}
-                      className="text-xs text-coral font-medium hover:underline disabled:opacity-50"
+                      className="text-xs text-sky font-medium hover:underline disabled:opacity-50"
                     >
                       {busyId === s.attendee_id ? "Sending…" : "Resend"}
                     </button>
@@ -225,7 +225,7 @@ export default function OrganizerEventAttendees() {
                     className={`text-xs rounded-full px-3 py-1.5 font-medium transition-colors disabled:opacity-50 ${
                       s.checked_in
                         ? "bg-ink text-paper"
-                        : "border-2 border-ink hover:border-coral hover:text-coral"
+                        : "border-2 border-ink hover:border-sky hover:text-sky"
                     }`}
                   >
                     {s.checked_in ? "Checked in ✓" : "Mark attended"}
@@ -236,14 +236,14 @@ export default function OrganizerEventAttendees() {
                   <button
                     onClick={() => handleSendReminder(s.attendee_id)}
                     disabled={busyId === s.attendee_id}
-                    className="text-sm border-2 border-ink rounded-full px-3 py-2 font-medium hover:border-coral hover:text-coral transition-colors disabled:opacity-50"
+                    className="text-sm border-2 border-ink rounded-full px-3 py-2 font-medium hover:border-sky hover:text-sky transition-colors disabled:opacity-50"
                   >
                     Remind
                   </button>
                   <button
                     onClick={() => handleConfirmPayment(s.attendee_id)}
                     disabled={busyId === s.attendee_id}
-                    className="text-sm bg-ink text-paper rounded-full px-4 py-2 font-medium hover:bg-coral transition-colors disabled:opacity-50"
+                    className="text-sm bg-ink text-paper rounded-full px-4 py-2 font-medium hover:bg-sky transition-colors disabled:opacity-50"
                   >
                     {busyId === s.attendee_id ? "Confirming…" : "Mark as paid"}
                   </button>
@@ -267,7 +267,7 @@ export default function OrganizerEventAttendees() {
                 <button
                   onClick={() => handlePromote(s.attendee_id)}
                   disabled={busyId === s.attendee_id}
-                  className="text-sm bg-ink text-paper rounded-full px-4 py-2 font-medium hover:bg-coral transition-colors disabled:opacity-50"
+                  className="text-sm bg-ink text-paper rounded-full px-4 py-2 font-medium hover:bg-sky transition-colors disabled:opacity-50"
                 >
                   {busyId === s.attendee_id ? "Promoting…" : "Promote to confirmed"}
                 </button>
@@ -287,11 +287,11 @@ export default function OrganizerEventAttendees() {
             value={walkinName}
             onChange={(e) => setWalkinName(e.target.value)}
             placeholder="Name"
-            className="flex-1 border-2 border-ink/15 rounded-full px-4 py-2 focus:border-coral focus:outline-none"
+            className="flex-1 border-2 border-ink/15 rounded-full px-4 py-2 focus:border-sky focus:outline-none"
           />
           <button
             type="submit"
-            className="bg-ink text-paper rounded-full px-5 py-2 font-medium hover:bg-coral transition-colors"
+            className="bg-ink text-paper rounded-full px-5 py-2 font-medium hover:bg-sky transition-colors"
           >
             + Add walk-in
           </button>
@@ -308,7 +308,7 @@ export default function OrganizerEventAttendees() {
                 <p className="font-medium">{w.name}</p>
                 <button
                   onClick={() => handleRemoveWalkin(w.id)}
-                  className="text-coral text-sm font-medium hover:underline"
+                  className="text-sky text-sm font-medium hover:underline"
                 >
                   Remove
                 </button>

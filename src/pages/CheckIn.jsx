@@ -43,7 +43,7 @@ export default function CheckIn() {
         <p className="text-ink-soft">Checking pass…</p>
       ) : error ? (
         <>
-          <p className="font-display text-xl text-coral mb-2">Can't check in</p>
+          <p className="font-display text-xl text-danger mb-2">Can't check in</p>
           <p className="text-ink-soft">{error}</p>
         </>
       ) : result?.already_checked_in ? (

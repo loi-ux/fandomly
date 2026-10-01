@@ -12,7 +12,7 @@ export default function EventCard({ event }) {
   return (
     <Link
       to={`/events/${event.id}`}
-      className="block bg-surface border-2 border-ink/10 rounded-2xl p-5 hover:border-coral transition-colors"
+      className="block bg-surface border-2 border-ink/10 rounded-2xl p-5 hover:border-sky transition-colors"
     >
       <div className="flex items-start justify-between gap-3">
         <div>

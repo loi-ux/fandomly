@@ -105,7 +105,7 @@ export default function OrganizerProfile() {
             className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
               isFollowing
                 ? "bg-ink text-paper"
-                : "border-2 border-ink hover:border-coral hover:text-coral"
+                : "border-2 border-ink hover:border-sky hover:text-sky"
             }`}
           >
             {isFollowing ? "Following ✓" : "Follow"}
@@ -121,12 +121,12 @@ export default function OrganizerProfile() {
             value={editingBio}
             onChange={(e) => setEditingBio(e.target.value)}
             placeholder="Tell fans a bit about the events you run…"
-            className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-coral focus:outline-none"
+            className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
           />
           <button
             onClick={saveBio}
             disabled={saving}
-            className="mt-2 text-sm bg-ink text-paper rounded-full px-4 py-2 font-medium hover:bg-coral transition-colors disabled:opacity-50"
+            className="mt-2 text-sm bg-ink text-paper rounded-full px-4 py-2 font-medium hover:bg-sky transition-colors disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save bio"}
           </button>

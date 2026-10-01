@@ -5,17 +5,20 @@
   --font-display: "Archivo Black", sans-serif;
   --font-body: "Work Sans", sans-serif;
 
-  --color-ink: #f3efe4;
-  --color-ink-soft: #a7b1d1;
-  --color-paper: #0f1b3d;
-  --color-paper-dim: #f0ecdd;
+  --color-ink: #13223f;
+  --color-ink-soft: #5c6b8a;
+  --color-paper: #eaf4fb;
+  --color-paper-dim: #ffffff;
   --color-marigold: #f4b740;
   --color-marigold-dim: #fceac0;
-  --color-coral: #ff7f72;
-  --color-sage: #7bc7a3;
+  --color-sky: #2f84bf;
+  --color-sky-dim: #cfe9f8;
+  --color-danger: #d9544a;
+  --color-danger-dim: #fbdedc;
+  --color-sage: #2f9467;
   --color-sage-dim: #dcefe4;
-  --color-surface: #17234c;
-  --color-navy: #0f1b3d;
+  --color-surface: #ffffff;
+  --color-navy: #13223f;
   --color-sage-dark: #1f6b4a;
 }
 
@@ -49,11 +52,11 @@ body {
 }
 
 /* Per-event accent color. An event page sets --event-accent inline from its
-   accent_color column; these utilities fall back to the site's coral when
+   accent_color column; these utilities fall back to the site's sky blue when
    an event hasn't picked one. */
-.text-accent { color: var(--event-accent, var(--color-coral)); }
-.bg-accent { background-color: var(--event-accent, var(--color-coral)); }
-.border-accent { border-color: var(--event-accent, var(--color-coral)); }
-.hover\:bg-accent:hover { background-color: var(--event-accent, var(--color-coral)); }
-.hover\:text-accent:hover { color: var(--event-accent, var(--color-coral)); }
-.hover\:border-accent:hover { border-color: var(--event-accent, var(--color-coral)); }
+.text-accent { color: var(--event-accent, var(--color-sky)); }
+.bg-accent { background-color: var(--event-accent, var(--color-sky)); }
+.border-accent { border-color: var(--event-accent, var(--color-sky)); }
+.hover\:bg-accent:hover { background-color: var(--event-accent, var(--color-sky)); }
+.hover\:text-accent:hover { color: var(--event-accent, var(--color-sky)); }
+.hover\:border-accent:hover { border-color: var(--event-accent, var(--color-sky)); }

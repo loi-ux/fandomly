@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 const statusStyles = {
   draft: "bg-paper-dim text-navy",
   published: "bg-sage-dim text-sage-dark",
-  cancelled: "bg-coral/20 text-coral",
+  cancelled: "bg-danger/20 text-danger",
 };
 
 export default function OrganizerDashboard() {
@@ -56,12 +56,12 @@ export default function OrganizerDashboard() {
         <h1 className="font-display text-3xl">My events</h1>
         <Link
           to="/organizer/new"
-          className="bg-ink text-paper rounded-full px-5 py-2.5 font-medium hover:bg-coral transition-colors"
+          className="bg-ink text-paper rounded-full px-5 py-2.5 font-medium hover:bg-sky transition-colors"
         >
           + New event
         </Link>
       </div>
-      <Link to={`/organizers/${user.id}`} className="text-sm text-coral hover:underline">
+      <Link to={`/organizers/${user.id}`} className="text-sm text-sky hover:underline">
         View your public profile
       </Link>
 
@@ -98,7 +98,7 @@ export default function OrganizerDashboard() {
               key={event.id}
               className="flex items-center justify-between border-2 border-ink/10 rounded-2xl px-5 py-4"
             >
-              <Link to={`/organizer/edit/${event.id}`} className="flex-1 hover:text-coral">
+              <Link to={`/organizer/edit/${event.id}`} className="flex-1 hover:text-sky">
                 <p className="font-medium">{event.title}</p>
                 <p className="text-sm text-ink-soft">
                   {new Date(event.event_date).toLocaleDateString("en-PH")} ·{" "}
@@ -111,7 +111,7 @@ export default function OrganizerDashboard() {
                 {event.is_paid && (
                   <Link
                     to={`/organizer/attendees/${event.id}`}
-                    className="text-sm font-medium text-coral hover:underline"
+                    className="text-sm font-medium text-sky hover:underline"
                   >
                     Attendees
                   </Link>

@@ -15,8 +15,8 @@ export default defineConfig({
         name: 'Fandomly',
         short_name: 'Fandomly',
         description: 'Cebu fandom events, all in one place.',
-        theme_color: '#0f1b3d',
-        background_color: '#fbf8f0',
+        theme_color: '#eaf4fb',
+        background_color: '#eaf4fb',
         display: 'standalone',
         start_url: '/',
         icons: [

@@ -244,7 +244,7 @@ export default function AdminDashboard() {
                 </div>
                 <button
                   onClick={() => confirmListingFee(event.id)}
-                  className="bg-ink text-paper rounded-full px-4 py-2 text-sm font-medium hover:bg-coral transition-colors"
+                  className="bg-ink text-paper rounded-full px-4 py-2 text-sm font-medium hover:bg-sky transition-colors"
                 >
                   Confirm & publish
                 </button>
@@ -273,7 +273,7 @@ export default function AdminDashboard() {
                 </div>
                 <button
                   onClick={() => grantFreeListing(o.id)}
-                  className="bg-ink text-paper rounded-full px-4 py-2 text-sm font-medium hover:bg-coral transition-colors"
+                  className="bg-ink text-paper rounded-full px-4 py-2 text-sm font-medium hover:bg-sky transition-colors"
                 >
                   + Grant free listing
                 </button>
@@ -290,11 +290,11 @@ export default function AdminDashboard() {
             value={newGroup}
             onChange={(e) => setNewGroup(e.target.value)}
             placeholder="Add a group or artist (e.g. TXT)"
-            className="border-2 border-ink/15 rounded-full px-4 py-2 flex-1 focus:border-coral focus:outline-none"
+            className="border-2 border-ink/15 rounded-full px-4 py-2 flex-1 focus:border-sky focus:outline-none"
           />
           <button
             type="submit"
-            className="bg-ink text-paper rounded-full px-5 py-2 font-medium hover:bg-coral transition-colors"
+            className="bg-ink text-paper rounded-full px-5 py-2 font-medium hover:bg-sky transition-colors"
           >
             Add
           </button>
@@ -308,7 +308,7 @@ export default function AdminDashboard() {
               {g.name}
               <button
                 onClick={() => removeGroup(g.id)}
-                className="text-navy/60 hover:text-coral text-xs font-bold px-1"
+                className="text-navy/60 hover:text-sky text-xs font-bold px-1"
                 title="Remove group"
               >
                 ✕
@@ -334,7 +334,7 @@ export default function AdminDashboard() {
               </div>
               <button
                 onClick={() => removeEvent(event.id)}
-                className="text-coral text-sm font-medium hover:underline"
+                className="text-sky text-sm font-medium hover:underline"
               >
                 Remove
               </button>

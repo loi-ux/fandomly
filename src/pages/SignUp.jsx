@@ -73,7 +73,7 @@ export default function SignUp() {
             required
             value={form.displayName}
             onChange={update("displayName")}
-            className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-coral focus:outline-none"
+            className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
           />
         </div>
         <div>
@@ -82,7 +82,7 @@ export default function SignUp() {
             value={form.city}
             onChange={update("city")}
             placeholder="Cebu City"
-            className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-coral focus:outline-none"
+            className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
           />
         </div>
         <div>
@@ -92,7 +92,7 @@ export default function SignUp() {
             type="email"
             value={form.email}
             onChange={update("email")}
-            className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-coral focus:outline-none"
+            className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
           />
         </div>
         <div>
@@ -103,16 +103,16 @@ export default function SignUp() {
             minLength={6}
             value={form.password}
             onChange={update("password")}
-            className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-coral focus:outline-none"
+            className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
           />
         </div>
 
-        {error && <p className="text-coral text-sm">{error}</p>}
+        {error && <p className="text-danger text-sm">{error}</p>}
 
         <button
           type="submit"
           disabled={submitting}
-          className="w-full bg-ink text-paper rounded-full py-3 font-medium hover:bg-coral transition-colors disabled:opacity-50"
+          className="w-full bg-ink text-paper rounded-full py-3 font-medium hover:bg-sky transition-colors disabled:opacity-50"
         >
           {submitting ? "Creating account…" : "Sign up"}
         </button>
@@ -120,13 +120,13 @@ export default function SignUp() {
 
       <p className="text-xs text-ink-soft mt-4 text-center">
         By signing up, you agree to Fandomly's{" "}
-        <Link to="/terms" className="text-coral">Terms of Service</Link> and{" "}
-        <Link to="/privacy" className="text-coral">Privacy Policy</Link>.
+        <Link to="/terms" className="text-sky">Terms of Service</Link> and{" "}
+        <Link to="/privacy" className="text-sky">Privacy Policy</Link>.
       </p>
 
       <p className="text-sm text-ink-soft mt-6 text-center">
         Already have an account?{" "}
-        <Link to="/login" className="text-coral font-medium">
+        <Link to="/login" className="text-sky font-medium">
           Log in
         </Link>
       </p>

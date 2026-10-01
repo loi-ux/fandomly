@@ -23,7 +23,7 @@ export default function Landing() {
   return (
     <div>
       <section className="max-w-5xl mx-auto px-5 pt-16 pb-20 text-center">
-        <p className="text-coral font-semibold mb-3">Cebu fandom events</p>
+        <p className="text-sky font-semibold mb-3">Cebu fandom events</p>
         <h1 className="font-display text-4xl md:text-6xl leading-[1.05] max-w-3xl mx-auto">
           Every fan project, birthday cafe, and meetup in one place.
         </h1>
@@ -35,13 +35,13 @@ export default function Landing() {
         <div className="flex items-center justify-center gap-4 mt-8">
           <Link
             to="/events"
-            className="bg-ink text-paper rounded-full px-6 py-3 font-medium hover:bg-coral transition-colors"
+            className="bg-ink text-paper rounded-full px-6 py-3 font-medium hover:bg-sky transition-colors"
           >
             Browse events
           </Link>
           <Link
             to="/signup"
-            className="border-2 border-ink rounded-full px-6 py-3 font-medium hover:border-coral hover:text-coral transition-colors"
+            className="border-2 border-ink rounded-full px-6 py-3 font-medium hover:border-sky hover:text-sky transition-colors"
           >
             Sign up free
           </Link>

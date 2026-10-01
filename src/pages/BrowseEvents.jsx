@@ -81,12 +81,12 @@ export default function BrowseEvents() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name or artist tag…"
-          className="border-2 border-ink/15 rounded-full px-4 py-2 flex-1 min-w-[200px] focus:border-coral focus:outline-none"
+          className="border-2 border-ink/15 rounded-full px-4 py-2 flex-1 min-w-[200px] focus:border-sky focus:outline-none"
         />
         <select
           value={cityFilter}
           onChange={(e) => setCityFilter(e.target.value)}
-          className="border-2 border-ink/15 rounded-full px-4 py-2 focus:border-coral focus:outline-none"
+          className="border-2 border-ink/15 rounded-full px-4 py-2 focus:border-sky focus:outline-none"
         >
           <option value="">All cities</option>
           {cities.map((city) => (
@@ -97,14 +97,14 @@ export default function BrowseEvents() {
         </select>
         <button
           onClick={findNearMe}
-          className="border-2 border-ink rounded-full px-4 py-2 font-medium hover:border-coral hover:text-coral transition-colors"
+          className="border-2 border-ink rounded-full px-4 py-2 font-medium hover:border-sky hover:text-sky transition-colors"
         >
           Nearest to me
         </button>
       </div>
 
       {locationError && (
-        <p className="text-coral text-sm mb-4">{locationError}</p>
+        <p className="text-danger text-sm mb-4">{locationError}</p>
       )}
       {userLocation && (
         <p className="text-sm text-ink-soft mb-4">

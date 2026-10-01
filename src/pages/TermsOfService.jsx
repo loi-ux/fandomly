@@ -104,7 +104,7 @@ export default function TermsOfService() {
           <h2 className="font-display text-xl mb-2">Contact</h2>
           <p>
             Questions? Reach out to{" "}
-            <a href="mailto:hello@fandomly.site" className="text-coral">hello@fandomly.site</a>.
+            <a href="mailto:hello@fandomly.site" className="text-sky">hello@fandomly.site</a>.
           </p>
         </section>
       </div>

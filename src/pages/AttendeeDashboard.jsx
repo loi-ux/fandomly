@@ -61,7 +61,7 @@ export default function AttendeeDashboard() {
           <button
             onClick={handleRequestOrganizer}
             disabled={requestSent || profile?.organizer_requested}
-            className="text-sm border-2 border-ink rounded-full px-4 py-2 hover:border-coral hover:text-coral transition-colors disabled:opacity-50"
+            className="text-sm border-2 border-ink rounded-full px-4 py-2 hover:border-sky hover:text-sky transition-colors disabled:opacity-50"
           >
             {profile?.organizer_requested || requestSent
               ? "Organizer request pending"
@@ -98,7 +98,7 @@ export default function AttendeeDashboard() {
       {going.length === 0 ? (
         <p className="text-ink-soft mb-8">
           Nothing yet —{" "}
-          <Link to="/events" className="text-coral font-medium">
+          <Link to="/events" className="text-sky font-medium">
             browse events
           </Link>{" "}
           to sign up.

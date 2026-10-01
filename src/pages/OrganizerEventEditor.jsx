@@ -426,7 +426,7 @@ export default function OrganizerEventEditor() {
         <button
           onClick={handleMarkFeeSent}
           disabled={markingPending}
-          className="bg-ink text-paper rounded-full px-5 py-2.5 font-medium hover:bg-coral transition-colors disabled:opacity-50"
+          className="bg-ink text-paper rounded-full px-5 py-2.5 font-medium hover:bg-sky transition-colors disabled:opacity-50"
         >
           {markingPending ? "Saving…" : "I've sent the ₱100"}
         </button>
@@ -449,7 +449,7 @@ export default function OrganizerEventEditor() {
           <input
             value={form.title}
             onChange={update("title")}
-            className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-coral focus:outline-none"
+            className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
           />
         </div>
 
@@ -483,12 +483,12 @@ export default function OrganizerEventEditor() {
               value={newGroupName}
               onChange={(e) => setNewGroupName(e.target.value)}
               placeholder="Don't see the artist/group? Type it here"
-              className="flex-1 border-2 border-ink/15 rounded-full px-3 py-1.5 text-sm focus:border-coral focus:outline-none"
+              className="flex-1 border-2 border-ink/15 rounded-full px-3 py-1.5 text-sm focus:border-sky focus:outline-none"
             />
             <button
               type="submit"
               disabled={addingGroup}
-              className="text-sm bg-ink text-paper rounded-full px-4 py-1.5 font-medium hover:bg-coral transition-colors disabled:opacity-50"
+              className="text-sm bg-ink text-paper rounded-full px-4 py-1.5 font-medium hover:bg-sky transition-colors disabled:opacity-50"
             >
               {addingGroup ? "Adding…" : "+ Add & tag"}
             </button>
@@ -502,7 +502,7 @@ export default function OrganizerEventEditor() {
               type="datetime-local"
               value={form.event_date}
               onChange={update("event_date")}
-              className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-coral focus:outline-none"
+              className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
             />
           </div>
           <div>
@@ -511,7 +511,7 @@ export default function OrganizerEventEditor() {
               value={form.city}
               onChange={update("city")}
               placeholder="Cebu City"
-              className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-coral focus:outline-none"
+              className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
             />
           </div>
         </div>
@@ -521,7 +521,7 @@ export default function OrganizerEventEditor() {
           <input
             value={form.venue}
             onChange={update("venue")}
-            className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-coral focus:outline-none"
+            className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
           />
         </div>
 
@@ -535,7 +535,7 @@ export default function OrganizerEventEditor() {
             value={form.capacity}
             onChange={update("capacity")}
             placeholder="e.g. 30"
-            className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-coral focus:outline-none"
+            className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
           />
           <p className="text-xs text-ink-soft mt-1">
             Once full, new signups go on a waitlist instead of taking a spot.
@@ -551,7 +551,7 @@ export default function OrganizerEventEditor() {
               value={form.lat}
               onChange={update("lat")}
               placeholder="10.3157"
-              className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-coral focus:outline-none"
+              className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
             />
           </div>
           <div>
@@ -560,7 +560,7 @@ export default function OrganizerEventEditor() {
               value={form.lng}
               onChange={update("lng")}
               placeholder="123.8854"
-              className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-coral focus:outline-none"
+              className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
             />
           </div>
         </div>
@@ -584,7 +584,7 @@ export default function OrganizerEventEditor() {
                   }}
                 />
                 <span
-                  className="absolute w-4 h-4 rounded-full border-2 border-white bg-coral/80 shadow pointer-events-none -translate-x-1/2 -translate-y-1/2"
+                  className="absolute w-4 h-4 rounded-full border-2 border-white bg-sky/80 shadow pointer-events-none -translate-x-1/2 -translate-y-1/2"
                   style={{
                     left: `${form.banner_focal_x}%`,
                     top: `${form.banner_focal_y}%`,
@@ -602,7 +602,7 @@ export default function OrganizerEventEditor() {
             accept="image/*"
             onChange={handleBannerUpload}
             disabled={uploadingBanner}
-            className="mt-2 w-full text-sm border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-coral focus:outline-none disabled:opacity-50"
+            className="mt-2 w-full text-sm border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none disabled:opacity-50"
           />
           {uploadingBanner && (
             <p className="text-xs text-ink-soft mt-1">Uploading…</p>
@@ -619,11 +619,11 @@ export default function OrganizerEventEditor() {
                 type="button"
                 key={color || "default"}
                 onClick={() => setForm({ ...form, accent_color: color })}
-                title={color || "Default (coral)"}
+                title={color || "Default (sky)"}
                 className={`w-8 h-8 rounded-full border-2 ${
                   form.accent_color === color ? "border-ink" : "border-ink/15"
                 }`}
-                style={{ background: color || "linear-gradient(135deg, #ff7f72, #f4b740)" }}
+                style={{ background: color || "linear-gradient(135deg, #2f84bf, #f4b740)" }}
               />
             ))}
             <input
@@ -631,7 +631,7 @@ export default function OrganizerEventEditor() {
               value={form.accent_color}
               onChange={update("accent_color")}
               placeholder="or type a hex code, e.g. #e0527a"
-              className="flex-1 min-w-[160px] border-2 border-ink/15 rounded-xl px-3 py-1.5 text-sm focus:border-coral focus:outline-none"
+              className="flex-1 min-w-[160px] border-2 border-ink/15 rounded-xl px-3 py-1.5 text-sm focus:border-sky focus:outline-none"
             />
           </div>
         </div>
@@ -657,7 +657,7 @@ export default function OrganizerEventEditor() {
                   value={form.price_php}
                   onChange={update("price_php")}
                   placeholder="150"
-                  className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-coral focus:outline-none"
+                  className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
                 />
               </div>
 
@@ -702,14 +702,14 @@ export default function OrganizerEventEditor() {
                     accept="image/*"
                     onChange={handleQrUpload}
                     disabled={uploadingQr}
-                    className="mt-2 w-full text-sm border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-coral focus:outline-none disabled:opacity-50"
+                    className="mt-2 w-full text-sm border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none disabled:opacity-50"
                   />
                   {uploadingQr && <p className="text-xs text-ink-soft mt-1">Uploading…</p>}
                   <input
                     value={form.payment_instructions}
                     onChange={update("payment_instructions")}
                     placeholder="Optional: account name for reference"
-                    className="mt-2 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-coral focus:outline-none"
+                    className="mt-2 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
                   />
                 </div>
               ) : (
@@ -728,7 +728,7 @@ export default function OrganizerEventEditor() {
                         ? "BDO — Juan Dela Cruz — 0012 3456 7890"
                         : "GCash: Juan Dela Cruz — 0917 123 4567"
                     }
-                    className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-coral focus:outline-none"
+                    className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
                   />
                 </div>
               )}
@@ -751,7 +751,7 @@ export default function OrganizerEventEditor() {
             <button
               type="button"
               onClick={addCustomField}
-              className="text-sm text-coral font-medium hover:underline"
+              className="text-sm text-sky font-medium hover:underline"
             >
               + Add question
             </button>
@@ -768,12 +768,12 @@ export default function OrganizerEventEditor() {
                   value={cf.label}
                   onChange={(e) => updateCustomField(cf.id, { label: e.target.value })}
                   placeholder="Question (e.g. T-shirt size)"
-                  className="flex-1 border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-coral focus:outline-none"
+                  className="flex-1 border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-sky focus:outline-none"
                 />
                 <select
                   value={cf.type}
                   onChange={(e) => updateCustomField(cf.id, { type: e.target.value })}
-                  className="border-2 border-ink/15 rounded-lg px-2 py-1.5 text-sm focus:border-coral focus:outline-none"
+                  className="border-2 border-ink/15 rounded-lg px-2 py-1.5 text-sm focus:border-sky focus:outline-none"
                 >
                   <option value="text">Short answer</option>
                   <option value="textarea">Long answer</option>
@@ -782,7 +782,7 @@ export default function OrganizerEventEditor() {
                 <button
                   type="button"
                   onClick={() => removeCustomField(cf.id)}
-                  className="text-coral text-sm px-2"
+                  className="text-sky text-sm px-2"
                 >
                   Remove
                 </button>
@@ -793,7 +793,7 @@ export default function OrganizerEventEditor() {
                   value={cf.optionsText ?? ""}
                   onChange={(e) => updateCustomField(cf.id, { optionsText: e.target.value })}
                   placeholder="Options, comma separated (e.g. S, M, L, XL)"
-                  className="w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-coral focus:outline-none"
+                  className="w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-sky focus:outline-none"
                 />
               )}
 
@@ -817,7 +817,7 @@ export default function OrganizerEventEditor() {
             rows={6}
             value={form.description}
             onChange={update("description")}
-            className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-coral focus:outline-none"
+            className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
           />
         </div>
 
@@ -827,7 +827,7 @@ export default function OrganizerEventEditor() {
             <button
               type="button"
               onClick={addContentBlock}
-              className="text-sm text-coral font-medium hover:underline"
+              className="text-sm text-sky font-medium hover:underline"
             >
               + Add section
             </button>
@@ -849,7 +849,7 @@ export default function OrganizerEventEditor() {
                     type="button"
                     onClick={() => moveContentOrder(key, -1)}
                     disabled={i === 0}
-                    className="text-ink-soft hover:text-coral disabled:opacity-20 leading-none text-xs"
+                    className="text-ink-soft hover:text-sky disabled:opacity-20 leading-none text-xs"
                   >
                     ▲
                   </button>
@@ -857,7 +857,7 @@ export default function OrganizerEventEditor() {
                     type="button"
                     onClick={() => moveContentOrder(key, 1)}
                     disabled={i === form.content_order.length - 1}
-                    className="text-ink-soft hover:text-coral disabled:opacity-20 leading-none text-xs"
+                    className="text-ink-soft hover:text-sky disabled:opacity-20 leading-none text-xs"
                   >
                     ▼
                   </button>
@@ -877,12 +877,12 @@ export default function OrganizerEventEditor() {
                   value={block.title}
                   onChange={(e) => updateContentBlock(block.id, { title: e.target.value })}
                   placeholder="Section title (e.g. Lineup, FAQ)"
-                  className="flex-1 border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-coral focus:outline-none"
+                  className="flex-1 border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-sky focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={() => removeContentBlock(block.id)}
-                  className="text-coral text-sm px-2"
+                  className="text-sky text-sm px-2"
                 >
                   Remove
                 </button>
@@ -892,26 +892,26 @@ export default function OrganizerEventEditor() {
                 value={block.body}
                 onChange={(e) => updateContentBlock(block.id, { body: e.target.value })}
                 placeholder="Content for this section…"
-                className="w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-coral focus:outline-none"
+                className="w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-sky focus:outline-none"
               />
             </div>
           ))}
         </div>
 
-        {error && <p className="text-coral text-sm">{error}</p>}
+        {error && <p className="text-danger text-sm">{error}</p>}
 
         <div className="flex gap-3 pt-2">
           <button
             onClick={handleSaveDraft}
             disabled={saving}
-            className="border-2 border-ink rounded-full px-5 py-2.5 font-medium hover:border-coral hover:text-coral transition-colors disabled:opacity-50"
+            className="border-2 border-ink rounded-full px-5 py-2.5 font-medium hover:border-sky hover:text-sky transition-colors disabled:opacity-50"
           >
             Save draft
           </button>
           <button
             onClick={handlePublish}
             disabled={saving}
-            className="bg-ink text-paper rounded-full px-5 py-2.5 font-medium hover:bg-coral transition-colors disabled:opacity-50"
+            className="bg-ink text-paper rounded-full px-5 py-2.5 font-medium hover:bg-sky transition-colors disabled:opacity-50"
           >
             {saving
               ? "Working…"
@@ -925,11 +925,11 @@ export default function OrganizerEventEditor() {
       </div>
 
       {isEditing && form.status === "published" && (
-        <div className="mt-10 border-2 border-coral rounded-2xl p-4">
+        <div className="mt-10 border-2 border-danger rounded-2xl p-4">
           {!showCancelForm ? (
             <button
               onClick={() => setShowCancelForm(true)}
-              className="text-coral text-sm font-medium hover:underline"
+              className="text-danger text-sm font-medium hover:underline"
             >
               Cancel this event
             </button>
@@ -946,19 +946,19 @@ export default function OrganizerEventEditor() {
                 value={cancelMessage}
                 onChange={(e) => setCancelMessage(e.target.value)}
                 placeholder="e.g. Unfortunately we have to cancel due to venue issues. If you already paid, please message us for a refund."
-                className="w-full border-2 border-ink/15 rounded-xl px-3 py-2 mb-3 focus:border-coral focus:outline-none"
+                className="w-full border-2 border-ink/15 rounded-xl px-3 py-2 mb-3 focus:border-sky focus:outline-none"
               />
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowCancelForm(false)}
-                  className="text-sm border-2 border-ink rounded-full px-4 py-2 font-medium hover:border-coral hover:text-coral transition-colors"
+                  className="text-sm border-2 border-ink rounded-full px-4 py-2 font-medium hover:border-sky hover:text-sky transition-colors"
                 >
                   Never mind
                 </button>
                 <button
                   onClick={handleCancelEvent}
                   disabled={cancelling}
-                  className="text-sm bg-coral text-white rounded-full px-4 py-2 font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                  className="text-sm bg-danger text-white rounded-full px-4 py-2 font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
                   {cancelling ? "Cancelling…" : "Cancel event & notify everyone"}
                 </button>

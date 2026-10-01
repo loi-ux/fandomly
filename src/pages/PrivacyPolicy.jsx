@@ -81,7 +81,7 @@ export default function PrivacyPolicy() {
           </ul>
           <p className="mt-2">
             To exercise these rights, contact us at{" "}
-            <a href="mailto:hello@fandomly.site" className="text-coral">hello@fandomly.site</a>.
+            <a href="mailto:hello@fandomly.site" className="text-sky">hello@fandomly.site</a>.
           </p>
         </section>
 
@@ -125,7 +125,7 @@ export default function PrivacyPolicy() {
           <h2 className="font-display text-xl mb-2">Contact</h2>
           <p>
             Questions about this policy? Reach out to{" "}
-            <a href="mailto:hello@fandomly.site" className="text-coral">hello@fandomly.site</a>.
+            <a href="mailto:hello@fandomly.site" className="text-sky">hello@fandomly.site</a>.
           </p>
         </section>
       </div>
