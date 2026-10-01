@@ -1,0 +1,10 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Client-side routing (React Router) needs every path to fall back to
+# index.html, or refreshing a page like /events/123 would 404.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

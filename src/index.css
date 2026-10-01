@@ -1,0 +1,49 @@
+@import url("https://fonts.googleapis.com/css2?family=Archivo+Black&family=Work+Sans:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Archivo Black", sans-serif;
+  --font-body: "Work Sans", sans-serif;
+
+  --color-ink: #f3efe4;
+  --color-ink-soft: #a7b1d1;
+  --color-paper: #0f1b3d;
+  --color-paper-dim: #f0ecdd;
+  --color-marigold: #f4b740;
+  --color-marigold-dim: #fceac0;
+  --color-coral: #ff7f72;
+  --color-sage: #7bc7a3;
+  --color-sage-dim: #dcefe4;
+  --color-surface: #17234c;
+  --color-navy: #0f1b3d;
+  --color-sage-dark: #1f6b4a;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+/* Perforated ticket-stub divider, used between an event's summary and its details */
+.stub-divider {
+  position: relative;
+  border-top: 2px dashed color-mix(in srgb, var(--color-ink) 20%, transparent);
+}
+.stub-divider::before,
+.stub-divider::after {
+  content: "";
+  position: absolute;
+  top: -10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: var(--color-paper);
+  border: 2px solid color-mix(in srgb, var(--color-ink) 12%, transparent);
+}
+.stub-divider::before { left: -10px; }
+.stub-divider::after { right: -10px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
