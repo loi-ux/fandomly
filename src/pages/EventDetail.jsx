@@ -321,6 +321,13 @@ export default function EventDetail() {
       proof_of_payment_url: null,
       proof_uploaded_at: null,
     });
+    // Waitlisted attendees aren't holding a confirmed spot yet, so there's
+    // nothing to pay for until they're promoted — skip the payment email.
+    if (!willWaitlist) {
+      supabase.functions.invoke("send-reservation-confirmation", {
+        body: { event_id: id, attendee_id: uid, origin: window.location.origin },
+      });
+    }
   }
 
   async function handleProofUpload(e) {
