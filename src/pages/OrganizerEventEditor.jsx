@@ -286,7 +286,7 @@ export default function OrganizerEventEditor() {
       price_php: form.is_paid ? Number(form.price_php) : null,
       capacity: form.capacity ? Number(form.capacity) : null,
       payment_method: form.is_paid ? form.payment_method : null,
-      payment_instructions: form.is_paid && form.payment_method !== "qr_code" ? form.payment_instructions : null,
+      payment_instructions: form.is_paid && form.payment_instructions.trim() ? form.payment_instructions.trim() : null,
       payment_qr_url: form.is_paid && form.payment_method === "qr_code" ? form.payment_qr_url : null,
       banner_focal_x: form.banner_focal_x ?? 50,
       banner_focal_y: form.banner_focal_y ?? 50,
