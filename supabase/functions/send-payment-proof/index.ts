@@ -94,33 +94,58 @@ Deno.serve(async (req) => {
     const base64 = btoa(binary);
     const filename = proof_path.split("/").pop() || "proof-of-payment";
 
-    const resendRes = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${Deno.env.get("RESEND_API_KEY")}`,
-      },
-      body: JSON.stringify({
-        from: Deno.env.get("RESEND_FROM_EMAIL") ?? "Fandomly <onboarding@resend.dev>",
-        to: organizerAuth.user.email,
-        subject: `Proof of payment: ${attendeeProfile?.display_name ?? "An attendee"} — ${event.title}`,
-        html: `
-          <div style="font-family: sans-serif; max-width: 480px; margin: auto;">
-            <h2>New proof of payment</h2>
-            <p><strong>${attendeeProfile?.display_name ?? "An attendee"}</strong> just uploaded proof of
-            payment for <strong>${event.title}</strong> (₱${event.price_php}).</p>
-            <p>It's attached to this email, and also saved on their signup in your Fandomly attendee list.</p>
-            <p>Once you've checked it, mark them as paid from the event's attendee list so they get their
-            entry pass.</p>
-          </div>
-        `,
-        attachments: [{ filename, content: base64 }],
-      }),
-    });
+    async function sendEmail() {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Deno.env.get("RESEND_API_KEY")}`,
+        },
+        body: JSON.stringify({
+          from: Deno.env.get("RESEND_FROM_EMAIL") ?? "Fandomly <onboarding@resend.dev>",
+          to: organizerAuth.user.email,
+          subject: `Proof of payment: ${attendeeProfile?.display_name ?? "An attendee"} — ${event.title}`,
+          html: `
+            <div style="font-family: sans-serif; max-width: 480px; margin: auto;">
+              <h2>New proof of payment</h2>
+              <p><strong>${attendeeProfile?.display_name ?? "An attendee"}</strong> just uploaded proof of
+              payment for <strong>${event.title}</strong> (₱${event.price_php}).</p>
+              <p>It's attached to this email, and also saved on their signup in your Fandomly attendee list.</p>
+              <p>Once you've checked it, mark them as paid from the event's attendee list so they get their
+              entry pass.</p>
+            </div>
+          `,
+          attachments: [{ filename, content: base64 }],
+        }),
+      });
+      if (res.ok) return { ok: true as const };
+      const details = await res.json().catch(() => ({}));
+      return { ok: false as const, details };
+    }
 
-    if (!resendRes.ok) {
-      const details = await resendRes.json();
-      return new Response(JSON.stringify({ error: "Failed to send email", details }), {
+    // A flaky connection to Resend shouldn't need the attendee to notice
+    // and manually hit "retry" themselves — try a couple more times first,
+    // with a short backoff, before giving up.
+    let lastDetails: unknown = null;
+    let sent = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 1000));
+      const result = await sendEmail();
+      if (result.ok) {
+        sent = true;
+        break;
+      }
+      lastDetails = result.details;
+    }
+
+    if (!sent) {
+      await admin.from("notification_failures").insert({
+        kind: "payment_proof",
+        event_id: event.id,
+        attendee_id: userData.user.id,
+        error_message: JSON.stringify(lastDetails).slice(0, 2000),
+      });
+      return new Response(JSON.stringify({ error: "Failed to send email", details: lastDetails }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

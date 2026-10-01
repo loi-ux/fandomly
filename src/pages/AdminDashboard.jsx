@@ -11,6 +11,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [topFandoms, setTopFandoms] = useState([]);
   const [topOrganizers, setTopOrganizers] = useState([]);
+  const [notificationFailures, setNotificationFailures] = useState([]);
 
   async function loadAll() {
     const [
@@ -26,6 +27,7 @@ export default function AdminDashboard() {
       { count: checkedInCount },
       { data: fandomFollowRows },
       { data: organizerFollowRows },
+      { data: failures },
     ] = await Promise.all([
       supabase
         .from("profiles")
@@ -55,8 +57,16 @@ export default function AdminDashboard() {
       supabase.from("event_signups").select("*", { count: "exact", head: true }).eq("checked_in", true),
       supabase.from("fandom_follows").select("kpop_group_id"),
       supabase.from("organizer_follows").select("organizer_id"),
+      supabase
+        .from("notification_failures")
+        .select(
+          "id, kind, error_message, created_at, event:events(title), attendee:profiles!notification_failures_attendee_id_fkey(display_name)"
+        )
+        .order("created_at", { ascending: false })
+        .limit(20),
     ]);
 
+    setNotificationFailures(failures ?? []);
     setPendingOrganizers(pending ?? []);
     setPendingListingFees(feeQueue ?? []);
     setOrganizers(organizerList ?? []);
@@ -195,6 +205,32 @@ export default function AdminDashboard() {
           </div>
         )}
       </section>
+
+      {notificationFailures.length > 0 && (
+        <section>
+          <h2 className="font-display text-xl mb-4">Emails that failed to send</h2>
+          <div className="space-y-3">
+            {notificationFailures.map((f) => (
+              <div
+                key={f.id}
+                className="border-2 border-danger bg-danger-dim rounded-2xl px-5 py-3 text-navy"
+              >
+                <p className="font-medium">
+                  {f.kind === "payment_proof" ? "Proof-of-payment notification" : f.kind}
+                  {f.attendee?.display_name ? ` — ${f.attendee.display_name}` : ""}
+                  {f.event?.title ? ` (${f.event.title})` : ""}
+                </p>
+                <p className="text-xs text-navy/70 mt-1">
+                  {new Date(f.created_at).toLocaleString("en-PH")}
+                </p>
+                {f.error_message && (
+                  <p className="text-xs text-navy/70 mt-1 font-mono break-all">{f.error_message}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section>
         <h2 className="font-display text-xl mb-4">
