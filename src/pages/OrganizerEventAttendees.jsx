@@ -31,7 +31,7 @@ export default function OrganizerEventAttendees() {
   async function load() {
     const { data: eventData } = await supabase
       .from("events")
-      .select("id, title, price_php, custom_fields")
+      .select("id, title, price_php, custom_fields, event_date")
       .eq("id", eventId)
       .single();
     setEvent(eventData);
@@ -198,17 +198,6 @@ export default function OrganizerEventAttendees() {
                   {busyId === s.attendee_id ? "Sending…" : "Resend"}
                 </button>
               )}
-              <button
-                onClick={() => handleToggleAttendance(s.attendee_id, s.checked_in)}
-                disabled={busyId === s.attendee_id}
-                className={`text-xs rounded-full px-3 py-1.5 font-medium transition-colors disabled:opacity-50 ${
-                  s.checked_in
-                    ? "bg-ink text-paper"
-                    : "border-2 border-ink hover:border-sky hover:text-sky"
-                }`}
-              >
-                {s.checked_in ? "Checked in ✓" : "Mark attended"}
-              </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
@@ -236,6 +225,38 @@ export default function OrganizerEventAttendees() {
               </button>
             </div>
           )
+    );
+  }
+
+  // Check-in opens at midnight Philippine time on the event day — the
+  // database enforces the same rule (check_in_opens_at).
+  const manilaDay = (d) =>
+    new Date(d).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  const checkInOpen = event.event_date && manilaDay(new Date()) >= manilaDay(event.event_date);
+  const checkInOpensLabel = event.event_date
+    ? new Date(event.event_date).toLocaleDateString("en-PH", {
+        month: "short",
+        day: "numeric",
+        timeZone: "Asia/Manila",
+      })
+    : "";
+
+  function renderCheckIn(s) {
+    if (s.payment_status !== "paid") return <span className="text-xs text-ink-soft">—</span>;
+    if (!checkInOpen && !s.checked_in) {
+      return <span className="text-xs text-ink-soft">Opens {checkInOpensLabel}</span>;
+    }
+    return (
+      <label className="inline-flex items-center gap-2 text-sm font-medium cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={Boolean(s.checked_in)}
+          onChange={() => handleToggleAttendance(s.attendee_id, s.checked_in)}
+          disabled={busyId === s.attendee_id}
+          className="w-4 h-4 accent-sage-dark"
+        />
+        {s.checked_in ? "Attended" : "Mark attended"}
+      </label>
     );
   }
 
@@ -360,6 +381,7 @@ export default function OrganizerEventAttendees() {
                       </th>
                     ))}
                     <th className="px-3 py-2.5 font-medium">Status</th>
+                    <th className="px-3 py-2.5 font-medium whitespace-nowrap">Check-in</th>
                     <th className="px-3 py-2.5 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
@@ -383,7 +405,7 @@ export default function OrganizerEventAttendees() {
                       <td className="px-3 py-3 whitespace-nowrap">
                         {s.payment_status === "paid" ? (
                           <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-sage-dim text-sage-dark">
-                            {s.checked_in ? "Checked in" : "Confirmed"}
+                            Confirmed
                           </span>
                         ) : (
                           <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-marigold-dim text-navy">
@@ -391,6 +413,7 @@ export default function OrganizerEventAttendees() {
                           </span>
                         )}
                       </td>
+                      <td className="px-3 py-3 whitespace-nowrap">{renderCheckIn(s)}</td>
                       <td className="px-3 py-3">
                         <div className="flex justify-end whitespace-nowrap">{renderActions(s, { inTable: true })}</div>
                       </td>
@@ -410,7 +433,6 @@ export default function OrganizerEventAttendees() {
                     <p className="font-medium">{s.attendee?.display_name ?? "Unknown"}</p>
                     <p className="text-sm text-ink-soft">
                       {s.attendee?.city}
-                      {s.checked_in && " · checked in ✓"}
                     </p>
                     {event.custom_fields?.length > 0 && (
                       <div className="mt-1 space-y-0.5">
@@ -422,6 +444,7 @@ export default function OrganizerEventAttendees() {
                         ))}
                       </div>
                     )}
+                    {s.payment_status === "paid" && <div className="mt-2">{renderCheckIn(s)}</div>}
                   </div>
                   {renderActions(s)}
                 </div>

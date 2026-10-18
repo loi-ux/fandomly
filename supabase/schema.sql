@@ -452,3 +452,96 @@ drop trigger if exists enforce_registration_window on public.event_signups;
 create trigger enforce_registration_window
   before insert or update of status on public.event_signups
   for each row execute function public.enforce_registration_window();
+
+-- ============================================================
+-- 12. CHECK-IN ONLY ON THE EVENT DAY
+-- ============================================================
+-- Check-in (QR scan or "Mark attended") opens at midnight Philippine time
+-- on the day of the event, so attendees can't be checked in by accident
+-- days ahead. Unmarking is always allowed.
+create or replace function public.check_in_opens_at(p_event_date timestamptz)
+returns timestamptz
+language sql
+immutable
+as $$
+  select (date_trunc('day', p_event_date at time zone 'Asia/Manila')) at time zone 'Asia/Manila';
+$$;
+
+create or replace function public.mark_attendance(p_event_id uuid, p_attendee_id uuid, p_attended boolean)
+returns void
+language plpgsql
+security definer
+set search_path to 'public'
+as $function$
+declare
+  v_event_date timestamptz;
+begin
+  select e.event_date into v_event_date
+  from events e
+  where e.id = p_event_id
+    and (e.organizer_id = auth.uid()
+         or exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'admin'));
+
+  if v_event_date is null then
+    raise exception 'Not authorized to mark attendance for this event';
+  end if;
+
+  if p_attended and now() < public.check_in_opens_at(v_event_date) then
+    raise exception 'Check-in opens on the day of the event.';
+  end if;
+
+  update event_signups
+  set checked_in = p_attended,
+      checked_in_at = case when p_attended then now() else null end
+  where event_id = p_event_id and attendee_id = p_attendee_id;
+end;
+$function$;
+
+create or replace function public.check_in_attendee(p_qr_token uuid)
+returns table(display_name text, event_title text, already_checked_in boolean)
+language plpgsql
+security definer
+set search_path to 'public'
+as $function$
+declare
+  v_event_id uuid;
+  v_attendee_id uuid;
+  v_organizer_id uuid;
+  v_already boolean;
+  v_payment_status text;
+  v_event_date timestamptz;
+begin
+  select es.event_id, es.attendee_id, es.checked_in, es.payment_status, e.organizer_id, e.event_date
+    into v_event_id, v_attendee_id, v_already, v_payment_status, v_organizer_id, v_event_date
+  from event_signups es
+  join events e on e.id = es.event_id
+  where es.qr_token = p_qr_token;
+
+  if v_event_id is null then
+    raise exception 'Invalid pass';
+  end if;
+
+  if v_organizer_id != auth.uid()
+     and not exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'admin') then
+    raise exception 'Not authorized to check in attendees for this event';
+  end if;
+
+  if v_payment_status != 'paid' then
+    raise exception 'This pass has not been marked as paid yet';
+  end if;
+
+  if now() < public.check_in_opens_at(v_event_date) then
+    raise exception 'Check-in opens on the day of the event.';
+  end if;
+
+  if not v_already then
+    update event_signups set checked_in = true, checked_in_at = now()
+    where event_id = v_event_id and attendee_id = v_attendee_id;
+  end if;
+
+  return query
+    select p.display_name, e.title, v_already
+    from profiles p, events e
+    where p.id = v_attendee_id and e.id = v_event_id;
+end;
+$function$;
