@@ -5,38 +5,49 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Emails everyone who follows a fandom tagged on this event, once it's
-// actually published. Called by the client right after a free event
-// publishes, and internally by the Xendit webhook after a paid event's
-// listing fee clears.
+// Emails everyone who follows a fandom tagged on this event, OR who
+// follows the organizer directly, once the event is actually published.
 async function notifyFollowers(admin: ReturnType<typeof createClient>, eventId: string, origin: string) {
   const { data: event } = await admin
     .from("events")
-    .select("id, title, event_date, venue, city, tags, status")
+    .select("id, title, event_date, venue, city, tags, status, organizer_id")
     .eq("id", eventId)
     .single();
 
-  if (!event || event.status !== "published" || !event.tags?.length) {
+  if (!event || event.status !== "published") {
     return { notified: 0 };
   }
 
-  const { data: groups } = await admin
-    .from("kpop_groups")
-    .select("id")
-    .in("name", event.tags);
-  const groupIds = (groups ?? []).map((g) => g.id);
-  if (groupIds.length === 0) return { notified: 0 };
+  const attendeeIdSet = new Set<string>();
 
-  const { data: follows } = await admin
-    .from("fandom_follows")
-    .select("attendee_id")
-    .in("kpop_group_id", groupIds);
-  const attendeeIds = [...new Set((follows ?? []).map((f) => f.attendee_id))];
+  if (event.tags?.length) {
+    const { data: groups } = await admin
+      .from("kpop_groups")
+      .select("id")
+      .in("name", event.tags);
+    const groupIds = (groups ?? []).map((g) => g.id);
+    if (groupIds.length > 0) {
+      const { data: fandomFollows } = await admin
+        .from("fandom_follows")
+        .select("attendee_id")
+        .in("kpop_group_id", groupIds);
+      (fandomFollows ?? []).forEach((f) => attendeeIdSet.add(f.attendee_id));
+    }
+  }
+
+  const { data: organizerFollows } = await admin
+    .from("organizer_follows")
+    .select("follower_id")
+    .eq("organizer_id", event.organizer_id);
+  (organizerFollows ?? []).forEach((f) => attendeeIdSet.add(f.follower_id));
+
+  const attendeeIds = [...attendeeIdSet];
   if (attendeeIds.length === 0) return { notified: 0 };
 
   const eventDate = new Date(event.event_date).toLocaleString("en-PH", {
     dateStyle: "full",
     timeStyle: "short",
+    timeZone: "Asia/Manila",
   });
   const eventUrl = `${origin}/events/${event.id}`;
 
@@ -56,7 +67,7 @@ async function notifyFollowers(admin: ReturnType<typeof createClient>, eventId: 
           subject: `New event: ${event.title}`,
           html: `
             <div style="font-family: sans-serif; max-width: 480px; margin: auto;">
-              <h2>A fandom you follow just posted an event</h2>
+              <h2>Someone you follow just posted an event</h2>
               <p><strong>${event.title}</strong></p>
               <p>${eventDate}<br/>${event.venue}, ${event.city}</p>
               <p><a href="${eventUrl}">View the event</a></p>

@@ -24,6 +24,7 @@ async function notifyFollowers(admin: ReturnType<typeof createClient>, eventId: 
   const eventDate = new Date(event.event_date).toLocaleString("en-PH", {
     dateStyle: "full",
     timeStyle: "short",
+    timeZone: "Asia/Manila",
   });
   const eventUrl = origin ? `${origin}/events/${event.id}` : "";
 

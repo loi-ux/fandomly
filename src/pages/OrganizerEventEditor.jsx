@@ -102,7 +102,7 @@ export default function OrganizerEventEditor() {
       if (data) {
         setForm({
           ...data,
-          event_date: data.event_date?.slice(0, 16) ?? "",
+          event_date: toLocalInputValue(data.event_date),
           tags: data.tags ?? [],
           price_php: data.price_php ?? "",
           capacity: data.capacity ?? "",
@@ -309,6 +309,7 @@ export default function OrganizerEventEditor() {
       ...form,
       status,
       organizer_id: user.id,
+      event_date: fromLocalInputValue(form.event_date),
       lat: form.lat ? parseFloat(form.lat) : null,
       lng: form.lng ? parseFloat(form.lng) : null,
       price_php: form.is_paid ? Number(form.price_php) : null,

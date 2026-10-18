@@ -34,7 +34,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Confirm the caller actually organizes this event (or is an admin).
     const { data: event } = await admin
       .from("events")
       .select("id, title, event_date, venue, city, organizer_id")
@@ -77,6 +76,7 @@ Deno.serve(async (req) => {
     const eventDate = new Date(event.event_date).toLocaleString("en-PH", {
       dateStyle: "full",
       timeStyle: "short",
+      timeZone: "Asia/Manila",
     });
 
     const resendRes = await fetch("https://api.resend.com/emails", {

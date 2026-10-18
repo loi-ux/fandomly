@@ -38,6 +38,7 @@ export default async (request, context) => {
     const title = escapeHtml(event.title);
     const dateStr = new Date(event.event_date).toLocaleDateString("en-PH", {
       dateStyle: "medium",
+      timeZone: "Asia/Manila",
     });
     const description = escapeHtml(
       event.description?.slice(0, 160) || `${dateStr} · ${event.venue}, ${event.city}`

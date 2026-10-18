@@ -65,6 +65,7 @@ Deno.serve(async (req) => {
     const eventDate = new Date(event.event_date).toLocaleString("en-PH", {
       dateStyle: "full",
       timeStyle: "short",
+      timeZone: "Asia/Manila",
     });
     const eventUrl = `${origin}/events/${event.id}`;
 

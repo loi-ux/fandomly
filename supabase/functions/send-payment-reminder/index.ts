@@ -82,6 +82,7 @@ Deno.serve(async (req) => {
     const eventDate = new Date(event.event_date).toLocaleString("en-PH", {
       dateStyle: "full",
       timeStyle: "short",
+      timeZone: "Asia/Manila",
     });
 
     // An event can offer several ways to pay at once, so stack a block
