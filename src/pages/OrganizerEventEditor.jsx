@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
+import {
+  fromLocalInputValue,
+  registrationState,
+  formatRegistrationTime,
+  toLocalInputValue,
+} from "../lib/registration";
 
 // TODO: replace with your actual GCash details.
 const PLATFORM_PAYMENT_INFO = "GCash: Eloisa O. — 09284915513";
@@ -33,6 +39,9 @@ export default function OrganizerEventEditor() {
     is_paid: false,
     price_php: "",
     capacity: "",
+    registration_closed: false,
+    registration_opens_at: "",
+    registration_closes_at: "",
     payment_methods: [],
     gcash_instructions: "",
     bank_instructions: "",
@@ -97,6 +106,9 @@ export default function OrganizerEventEditor() {
           tags: data.tags ?? [],
           price_php: data.price_php ?? "",
           capacity: data.capacity ?? "",
+          registration_closed: data.registration_closed ?? false,
+          registration_opens_at: toLocalInputValue(data.registration_opens_at),
+          registration_closes_at: toLocalInputValue(data.registration_closes_at),
           payment_methods: data.payment_methods ?? [],
           gcash_instructions: data.gcash_instructions ?? "",
           bank_instructions: data.bank_instructions ?? "",
@@ -280,6 +292,14 @@ export default function OrganizerEventEditor() {
       setError("Add your bank name, account name, and account number.");
       return null;
     }
+    if (
+      form.registration_opens_at &&
+      form.registration_closes_at &&
+      new Date(form.registration_opens_at) >= new Date(form.registration_closes_at)
+    ) {
+      setError("Registration has to open before it closes.");
+      return null;
+    }
     if (form.custom_fields.some((cf) => !cf.label.trim())) {
       setError("Every custom question needs a label (or remove the empty one).");
       return null;
@@ -293,6 +313,9 @@ export default function OrganizerEventEditor() {
       lng: form.lng ? parseFloat(form.lng) : null,
       price_php: form.is_paid ? Number(form.price_php) : null,
       capacity: form.capacity ? Number(form.capacity) : null,
+      registration_closed: Boolean(form.registration_closed),
+      registration_opens_at: fromLocalInputValue(form.registration_opens_at),
+      registration_closes_at: fromLocalInputValue(form.registration_closes_at),
       payment_methods: form.is_paid ? form.payment_methods : [],
       gcash_instructions:
         form.is_paid && form.payment_methods.includes("gcash") && form.gcash_instructions.trim()
@@ -559,6 +582,96 @@ export default function OrganizerEventEditor() {
           />
           <p className="text-xs text-ink-soft mt-1">
             Once full, new signups go on a waitlist instead of taking a spot.
+          </p>
+        </div>
+
+        <div className="border-2 border-ink/10 rounded-2xl p-4 space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Registration</p>
+              <p className="text-xs text-ink-soft mt-0.5">
+                {(() => {
+                  const reg = registrationState({
+                    registration_closed: form.registration_closed,
+                    registration_opens_at: fromLocalInputValue(form.registration_opens_at),
+                    registration_closes_at: fromLocalInputValue(form.registration_closes_at),
+                  });
+                  if (reg.open) {
+                    return reg.closesAt
+                      ? `Open now · closes ${formatRegistrationTime(reg.closesAt)}`
+                      : "Open now";
+                  }
+                  if (reg.reason === "not_yet") return `Opens ${formatRegistrationTime(reg.opensAt)}`;
+                  if (reg.reason === "ended") return "Closed — the scheduled closing time has passed";
+                  return "Closed — you turned registration off";
+                })()}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={!form.registration_closed}
+              onClick={() => setForm({ ...form, registration_closed: !form.registration_closed })}
+              className={`shrink-0 text-sm font-medium rounded-full px-4 py-1.5 transition-colors ${
+                form.registration_closed
+                  ? "bg-danger/15 text-danger"
+                  : "bg-sage-dim text-sage-dark"
+              }`}
+            >
+              {form.registration_closed ? "Closed" : "Open"}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium">
+                Opens at <span className="text-ink-soft">(optional)</span>
+              </label>
+              <div className="flex gap-2 mt-1">
+                <input
+                  type="datetime-local"
+                  value={form.registration_opens_at}
+                  onChange={update("registration_opens_at")}
+                  className="w-full border-2 border-ink/15 rounded-xl px-3 py-2 text-sm focus:border-sky focus:outline-none"
+                />
+                {form.registration_opens_at && (
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, registration_opens_at: "" })}
+                    className="text-xs text-ink-soft hover:text-danger"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium">
+                Closes at <span className="text-ink-soft">(optional)</span>
+              </label>
+              <div className="flex gap-2 mt-1">
+                <input
+                  type="datetime-local"
+                  value={form.registration_closes_at}
+                  onChange={update("registration_closes_at")}
+                  className="w-full border-2 border-ink/15 rounded-xl px-3 py-2 text-sm focus:border-sky focus:outline-none"
+                />
+                {form.registration_closes_at && (
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, registration_closes_at: "" })}
+                    className="text-xs text-ink-soft hover:text-danger"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-ink-soft">
+            Leave the times blank to keep registration open until you close it.
+            The Open/Closed switch overrides the schedule. People can still tap
+            "Interested" while registration is closed.
           </p>
         </div>
 

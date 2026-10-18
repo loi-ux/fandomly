@@ -382,3 +382,73 @@ create policy "Anyone can view banners"
 --
 -- update profiles set role = 'admin'
 -- where id = (select id from auth.users where email = 'your-email@example.com');
+
+-- ============================================================
+-- 11. REGISTRATION OPEN / CLOSE + SCHEDULE
+-- ============================================================
+-- Organizers can switch registration off manually (registration_closed)
+-- and/or schedule when it opens and closes. The manual switch overrides
+-- the schedule. Only new "going" signups are blocked — "interested" is
+-- always allowed, and existing signups are never touched.
+alter table public.events
+  add column if not exists registration_closed boolean not null default false,
+  add column if not exists registration_opens_at timestamptz,
+  add column if not exists registration_closes_at timestamptz;
+
+alter table public.events drop constraint if exists registration_window_order;
+alter table public.events
+  add constraint registration_window_order
+  check (registration_opens_at is null or registration_closes_at is null
+         or registration_opens_at < registration_closes_at);
+
+create or replace function public.is_registration_open(e public.events)
+returns boolean
+language sql
+stable
+set search_path = public
+as $$
+  select not e.registration_closed
+    and (e.registration_opens_at is null or now() >= e.registration_opens_at)
+    and (e.registration_closes_at is null or now() < e.registration_closes_at);
+$$;
+
+-- Enforced in the database so it can't be bypassed from the browser.
+-- Organizers/admins and backend (service role) writes are exempt.
+create or replace function public.enforce_registration_window()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_event public.events;
+begin
+  if new.status <> 'going' then
+    return new;
+  end if;
+  if tg_op = 'UPDATE' and old.status = 'going' then
+    return new;
+  end if;
+  if auth.uid() is null then
+    return new;
+  end if;
+
+  select * into v_event from public.events where id = new.event_id;
+
+  if v_event.organizer_id = auth.uid()
+     or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin') then
+    return new;
+  end if;
+
+  if not public.is_registration_open(v_event) then
+    raise exception 'Registration for this event is closed.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists enforce_registration_window on public.event_signups;
+create trigger enforce_registration_window
+  before insert or update of status on public.event_signups
+  for each row execute function public.enforce_registration_window();
