@@ -10,6 +10,23 @@ export default function OrganizerEventAttendees() {
   const [walkinName, setWalkinName] = useState("");
   const [busyId, setBusyId] = useState(null);
   const [message, setMessage] = useState(null);
+  const [view, setView] = useState(() => {
+    try {
+      return localStorage.getItem("attendeesView") === "table" ? "table" : "cards";
+    } catch {
+      return "cards";
+    }
+  });
+  const [search, setSearch] = useState("");
+
+  function changeView(next) {
+    setView(next);
+    try {
+      localStorage.setItem("attendeesView", next);
+    } catch {
+      // Private browsing etc. — the toggle still works, it just won't be remembered.
+    }
+  }
 
   async function load() {
     const { data: eventData } = await supabase
@@ -155,8 +172,114 @@ export default function OrganizerEventAttendees() {
 
   if (!event) return <p className="text-center py-16 text-ink-soft">Loading…</p>;
 
+  function renderActions(s, { inTable = false } = {}) {
+    return (
+      s.payment_status === "paid" ? (
+            <div className="flex items-center gap-2">
+              {!inTable && (
+                <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-sage-dim text-sage-dark">
+                  Confirmed{s.pass_email_sent_at ? "" : " (email pending)"}
+                </span>
+              )}
+              {s.proof_of_payment_url && (
+                <button
+                  onClick={() => handleViewProof(s.proof_of_payment_url)}
+                  className="text-xs text-sky font-medium hover:underline"
+                >
+                  View proof
+                </button>
+              )}
+              {!s.pass_email_sent_at && (
+                <button
+                  onClick={() => handleResendPassEmail(s.attendee_id)}
+                  disabled={busyId === s.attendee_id}
+                  className="text-xs text-sky font-medium hover:underline disabled:opacity-50"
+                >
+                  {busyId === s.attendee_id ? "Sending…" : "Resend"}
+                </button>
+              )}
+              <button
+                onClick={() => handleToggleAttendance(s.attendee_id, s.checked_in)}
+                disabled={busyId === s.attendee_id}
+                className={`text-xs rounded-full px-3 py-1.5 font-medium transition-colors disabled:opacity-50 ${
+                  s.checked_in
+                    ? "bg-ink text-paper"
+                    : "border-2 border-ink hover:border-sky hover:text-sky"
+                }`}
+              >
+                {s.checked_in ? "Checked in ✓" : "Mark attended"}
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              {s.proof_of_payment_url && (
+                <button
+                  onClick={() => handleViewProof(s.proof_of_payment_url)}
+                  className="text-sm text-sky font-medium hover:underline"
+                >
+                  View proof
+                </button>
+              )}
+              <button
+                onClick={() => handleSendReminder(s.attendee_id)}
+                disabled={busyId === s.attendee_id}
+                className="text-sm border-2 border-ink rounded-full px-3 py-2 font-medium hover:border-sky hover:text-sky transition-colors disabled:opacity-50"
+              >
+                Remind
+              </button>
+              <button
+                onClick={() => handleConfirmPayment(s.attendee_id)}
+                disabled={busyId === s.attendee_id}
+                className="text-sm bg-ink text-paper rounded-full px-4 py-2 font-medium hover:bg-sky transition-colors disabled:opacity-50"
+              >
+                {busyId === s.attendee_id ? "Confirming…" : "Mark as paid"}
+              </button>
+            </div>
+          )
+    );
+  }
+
+  const activeSignups = signups.filter((s) => !s.waitlisted);
+  const query = search.trim().toLowerCase();
+  const visibleSignups = query
+    ? activeSignups.filter((s) =>
+        [
+          s.attendee?.display_name,
+          s.attendee?.city,
+          ...Object.values(s.custom_field_responses ?? {}),
+        ]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(query))
+      )
+    : activeSignups;
+
+  function downloadCsv() {
+    const fields = event.custom_fields ?? [];
+    const header = ["Name", "City", ...fields.map((f) => f.label), "Payment", "Checked in"];
+    const rows = activeSignups.map((s) => [
+      s.attendee?.display_name ?? "",
+      s.attendee?.city ?? "",
+      ...fields.map((f) => s.custom_field_responses?.[f.id] ?? ""),
+      s.payment_status === "paid" ? "Paid" : s.proof_of_payment_url ? "Proof sent" : "Unpaid",
+      s.checked_in ? "Yes" : "No",
+    ]);
+    const escape = (v) => {
+      const str = String(v ?? "");
+      return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+    };
+    const csv = [header, ...rows].map((r) => r.map(escape).join(",")).join("\n");
+    // BOM so Excel opens Filipino/emoji characters correctly.
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${event.title.replace(/[^\w\s-]/g, "").trim().slice(0, 60) || "attendees"}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
-    <div className="max-w-3xl mx-auto px-5 py-12">
+    <div className={`${view === "table" ? "max-w-6xl" : "max-w-3xl"} mx-auto px-5 py-12`}>
       <Link to="/organizer" className="text-sm text-ink-soft hover:text-sky">
         ← My events
       </Link>
@@ -190,93 +313,122 @@ export default function OrganizerEventAttendees() {
       {signups.filter((s) => !s.waitlisted).length === 0 ? (
         <p className="text-ink-soft">No signups yet.</p>
       ) : (
-        <div className="space-y-3">
-          {signups.filter((s) => !s.waitlisted).map((s) => (
-            <div
-              key={s.attendee_id}
-              className="flex items-center justify-between border-2 border-ink/10 rounded-2xl px-5 py-4"
-            >
-              <div>
-                <p className="font-medium">{s.attendee?.display_name ?? "Unknown"}</p>
-                <p className="text-sm text-ink-soft">
-                  {s.attendee?.city}
-                  {s.checked_in && " · checked in ✓"}
-                </p>
-                {event.custom_fields?.length > 0 && (
-                  <div className="mt-1 space-y-0.5">
-                    {event.custom_fields.map((field) => (
-                      <p key={field.id} className="text-xs text-ink-soft">
-                        <span className="font-medium">{field.label}:</span>{" "}
-                        {s.custom_field_responses?.[field.id] || "—"}
-                      </p>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {s.payment_status === "paid" ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-sage-dim text-sage-dark">
-                    Confirmed{s.pass_email_sent_at ? "" : " (email pending)"}
-                  </span>
-                  {s.proof_of_payment_url && (
-                    <button
-                      onClick={() => handleViewProof(s.proof_of_payment_url)}
-                      className="text-xs text-sky font-medium hover:underline"
-                    >
-                      View proof
-                    </button>
-                  )}
-                  {!s.pass_email_sent_at && (
-                    <button
-                      onClick={() => handleResendPassEmail(s.attendee_id)}
-                      disabled={busyId === s.attendee_id}
-                      className="text-xs text-sky font-medium hover:underline disabled:opacity-50"
-                    >
-                      {busyId === s.attendee_id ? "Sending…" : "Resend"}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleToggleAttendance(s.attendee_id, s.checked_in)}
-                    disabled={busyId === s.attendee_id}
-                    className={`text-xs rounded-full px-3 py-1.5 font-medium transition-colors disabled:opacity-50 ${
-                      s.checked_in
-                        ? "bg-ink text-paper"
-                        : "border-2 border-ink hover:border-sky hover:text-sky"
-                    }`}
-                  >
-                    {s.checked_in ? "Checked in ✓" : "Mark attended"}
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  {s.proof_of_payment_url && (
-                    <button
-                      onClick={() => handleViewProof(s.proof_of_payment_url)}
-                      className="text-sm text-sky font-medium hover:underline"
-                    >
-                      View proof
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleSendReminder(s.attendee_id)}
-                    disabled={busyId === s.attendee_id}
-                    className="text-sm border-2 border-ink rounded-full px-3 py-2 font-medium hover:border-sky hover:text-sky transition-colors disabled:opacity-50"
-                  >
-                    Remind
-                  </button>
-                  <button
-                    onClick={() => handleConfirmPayment(s.attendee_id)}
-                    disabled={busyId === s.attendee_id}
-                    className="text-sm bg-ink text-paper rounded-full px-4 py-2 font-medium hover:bg-sky transition-colors disabled:opacity-50"
-                  >
-                    {busyId === s.attendee_id ? "Confirming…" : "Mark as paid"}
-                  </button>
-                </div>
-              )}
+        <>
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <div className="inline-flex rounded-full border-2 border-ink/15 p-0.5 text-sm font-medium">
+              {["cards", "table"].map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => changeView(v)}
+                  className={`px-4 py-1.5 rounded-full transition-colors ${
+                    view === v ? "bg-ink text-paper" : "text-ink-soft hover:text-ink"
+                  }`}
+                >
+                  {v === "cards" ? "Cards" : "Table"}
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name or answers…"
+              className="flex-1 min-w-[12rem] border-2 border-ink/15 rounded-full px-4 py-1.5 text-sm focus:border-sky focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={downloadCsv}
+              className="text-sm font-medium text-sky hover:underline"
+            >
+              Download CSV
+            </button>
+          </div>
+
+          {visibleSignups.length === 0 ? (
+            <p className="text-ink-soft text-sm">No one matches "{search}".</p>
+          ) : view === "table" ? (
+            <div className="overflow-x-auto border-2 border-ink/10 rounded-2xl">
+              <table className="min-w-full text-sm">
+                <thead className="bg-paper-dim text-left text-xs text-ink-soft">
+                  <tr>
+                    <th className="px-3 py-2.5 font-medium w-8">#</th>
+                    <th className="px-3 py-2.5 font-medium sticky left-0 bg-paper-dim">Name</th>
+                    <th className="px-3 py-2.5 font-medium">City</th>
+                    {(event.custom_fields ?? []).map((field) => (
+                      <th key={field.id} className="px-3 py-2.5 font-medium min-w-[10rem]">
+                        {field.label}
+                      </th>
+                    ))}
+                    <th className="px-3 py-2.5 font-medium">Status</th>
+                    <th className="px-3 py-2.5 font-medium text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleSignups.map((s, i) => (
+                    <tr key={s.attendee_id} className="border-t border-ink/10 align-top">
+                      <td className="px-3 py-3 text-ink-soft">{i + 1}</td>
+                      <td className="px-3 py-3 font-medium whitespace-nowrap sticky left-0 bg-paper">
+                        {s.attendee?.display_name ?? "Unknown"}
+                      </td>
+                      <td className="px-3 py-3 text-ink-soft whitespace-nowrap">
+                        {s.attendee?.city || "—"}
+                      </td>
+                      {(event.custom_fields ?? []).map((field) => (
+                        <td key={field.id} className="px-3 py-3 break-words max-w-[16rem]">
+                          {s.custom_field_responses?.[field.id] || (
+                            <span className="text-ink-soft">—</span>
+                          )}
+                        </td>
+                      ))}
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        {s.payment_status === "paid" ? (
+                          <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-sage-dim text-sage-dark">
+                            {s.checked_in ? "Checked in" : "Confirmed"}
+                          </span>
+                        ) : (
+                          <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-marigold-dim text-navy">
+                            {s.proof_of_payment_url ? "Proof sent" : "Unpaid"}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="flex justify-end whitespace-nowrap">{renderActions(s, { inTable: true })}</div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {visibleSignups.map((s) => (
+                <div
+                  key={s.attendee_id}
+                  className="flex items-center justify-between border-2 border-ink/10 rounded-2xl px-5 py-4"
+                >
+                  <div>
+                    <p className="font-medium">{s.attendee?.display_name ?? "Unknown"}</p>
+                    <p className="text-sm text-ink-soft">
+                      {s.attendee?.city}
+                      {s.checked_in && " · checked in ✓"}
+                    </p>
+                    {event.custom_fields?.length > 0 && (
+                      <div className="mt-1 space-y-0.5">
+                        {event.custom_fields.map((field) => (
+                          <p key={field.id} className="text-xs text-ink-soft">
+                            <span className="font-medium">{field.label}:</span>{" "}
+                            {s.custom_field_responses?.[field.id] || "—"}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {renderActions(s)}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {signups.some((s) => s.waitlisted) && (
