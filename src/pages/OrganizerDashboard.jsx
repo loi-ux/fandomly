@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
+import { formatRegistrationTime, registrationState } from "../lib/registration";
 
 const statusStyles = {
   draft: "bg-paper-dim text-navy",
@@ -13,12 +14,32 @@ export default function OrganizerDashboard() {
   const { user } = useAuth();
   const [events, setEvents] = useState([]);
   const [stats, setStats] = useState(null);
+  const [togglingId, setTogglingId] = useState(null);
+
+  async function toggleRegistration(event) {
+    const next = !event.registration_closed;
+    setTogglingId(event.id);
+    const { error } = await supabase
+      .from("events")
+      .update({ registration_closed: next })
+      .eq("id", event.id);
+    setTogglingId(null);
+    if (error) {
+      alert(`Couldn't update registration: ${error.message}`);
+      return;
+    }
+    setEvents((list) =>
+      list.map((e) => (e.id === event.id ? { ...e, registration_closed: next } : e))
+    );
+  }
 
   useEffect(() => {
     async function load() {
       const { data } = await supabase
         .from("events")
-        .select("id, title, event_date, city, status, is_paid, price_php, listing_fee_status")
+        .select(
+          "id, title, event_date, city, status, is_paid, price_php, listing_fee_status, registration_closed, registration_opens_at, registration_closes_at"
+        )
         .eq("organizer_id", user.id)
         .order("event_date", { ascending: false });
       setEvents(data ?? []);
@@ -105,9 +126,33 @@ export default function OrganizerDashboard() {
                   {event.city}
                   {event.is_paid && ` · ₱${event.price_php}`}
                 </p>
+                {event.status === "published" && new Date(event.event_date) > new Date() && (() => {
+                  const reg = registrationState(event);
+                  return (
+                    <p className={`text-xs mt-1 ${reg.open ? "text-sage-dark" : "text-danger"}`}>
+                      {reg.open
+                        ? reg.closesAt
+                          ? `Registration open · closes ${formatRegistrationTime(reg.closesAt)}`
+                          : "Registration open"
+                        : reg.reason === "not_yet"
+                        ? `Registration opens ${formatRegistrationTime(reg.opensAt)}`
+                        : "Registration closed"}
+                    </p>
+                  );
+                })()}
               </Link>
 
               <div className="flex items-center gap-3">
+                {event.status === "published" && new Date(event.event_date) > new Date() && (
+                  <button
+                    type="button"
+                    onClick={() => toggleRegistration(event)}
+                    disabled={togglingId === event.id}
+                    className="text-sm font-medium text-sky hover:underline disabled:opacity-50"
+                  >
+                    {event.registration_closed ? "Open registration" : "Close registration"}
+                  </button>
+                )}
                 {event.is_paid && (
                   <Link
                     to={`/organizer/attendees/${event.id}`}

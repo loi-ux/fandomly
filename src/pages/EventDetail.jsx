@@ -2,6 +2,11 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
+import {
+  formatRegistrationTime,
+  nextRegistrationChange,
+  registrationState,
+} from "../lib/registration";
 
 function toIcsDate(dateStr) {
   return new Date(dateStr).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
@@ -68,6 +73,7 @@ export default function EventDetail() {
   const [proofError, setProofError] = useState(null);
   const [notifyingOrganizer, setNotifyingOrganizer] = useState(false);
   const [notifyFailed, setNotifyFailed] = useState(false);
+  const [now, setNow] = useState(() => new Date());
 
   async function loadSignup() {
     if (!user) return;
@@ -136,6 +142,25 @@ export default function EventDetail() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user]);
+
+  // Flip the buttons the moment a scheduled open/close time arrives, so a
+  // fan waiting on the page doesn't have to refresh.
+  useEffect(() => {
+    const next = nextRegistrationChange(event, now);
+    if (!next) return;
+    // setTimeout caps out around 24.8 days; re-check daily for far-off times.
+    const delay = Math.min(next - now + 500, 24 * 60 * 60 * 1000);
+    const timer = setTimeout(() => setNow(new Date()), delay);
+    return () => clearTimeout(timer);
+  }, [event, now]);
+
+  function registrationClosedMessage() {
+    const reg = registrationState(event, new Date());
+    if (reg.reason === "not_yet") {
+      return `Registration opens ${formatRegistrationTime(reg.opensAt)}.`;
+    }
+    return "Registration for this event is closed.";
+  }
 
   async function toggleFollow(groupId) {
     if (!user) return;
@@ -264,6 +289,15 @@ export default function EventDetail() {
   );
 
   async function handleFreeSignup(status) {
+    if (
+      status === "going" &&
+      signup?.status !== "going" &&
+      !registrationState(event, new Date()).open
+    ) {
+      setFormError(registrationClosedMessage());
+      setNow(new Date());
+      return;
+    }
     if (status === "going" && !validateResponses()) return;
     const uid = await getOrCreateUserId();
     if (!uid) return;
@@ -286,6 +320,11 @@ export default function EventDetail() {
   }
 
   async function handleReserve() {
+    if (!registrationState(event, new Date()).open) {
+      setFormError(registrationClosedMessage());
+      setNow(new Date());
+      return;
+    }
     if (!validateResponses()) return;
     setReserving(true);
     const uid = await getOrCreateUserId();
@@ -406,13 +445,33 @@ export default function EventDetail() {
   const isWaitlisted = signup?.waitlisted;
   const isConfirmed = isPaid ? signup?.payment_status === "paid" : signup?.status === "going" && !isWaitlisted;
   const isPastEvent = new Date(event.event_date) < new Date();
+  const reg = registrationState(event, now);
+  const registrationNotice = !reg.open && (
+    <div className="border-2 border-ink/15 bg-paper-dim rounded-2xl p-5 mb-4 text-navy">
+      {reg.reason === "not_yet" ? (
+        <>
+          <p className="font-medium mb-1">Registration isn't open yet</p>
+          <p className="text-sm">
+            Opens {formatRegistrationTime(reg.opensAt)}
+            {reg.closesAt && ` · closes ${formatRegistrationTime(reg.closesAt)}`}. This
+            page will unlock on its own — no need to refresh.
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="font-medium mb-1">Registration is closed</p>
+          <p className="text-sm">The organizer isn't taking new signups for this event.</p>
+        </>
+      )}
+    </div>
+  );
   const qrImageUrl = signup?.qr_token
     ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
         `${window.location.origin}/checkin?token=${signup.qr_token}`
       )}`
     : null;
 
-  const customFieldsForm = event.custom_fields?.length > 0 && !hasReserved && (
+  const customFieldsForm = event.custom_fields?.length > 0 && !hasReserved && reg.open && (
     <div className="border-2 border-ink/10 rounded-2xl p-4 mb-4 space-y-3">
       {event.custom_fields.map((field) => (
         <div key={field.id}>
@@ -559,6 +618,21 @@ export default function EventDetail() {
           <span className="text-xs font-medium bg-paper-dim text-navy px-3 py-1 rounded-full">
             {Math.max(event.capacity - goingCount, 0)} of {event.capacity} spots left
           </span>
+        )}
+        {event.status !== "cancelled" && !isPastEvent && (
+          reg.open ? (
+            reg.closesAt && (
+              <span className="text-xs font-medium bg-marigold-dim text-navy px-3 py-1 rounded-full">
+                Registration closes {formatRegistrationTime(reg.closesAt)}
+              </span>
+            )
+          ) : (
+            <span className="text-xs font-medium bg-danger/15 text-danger px-3 py-1 rounded-full">
+              {reg.reason === "not_yet"
+                ? `Registration opens ${formatRegistrationTime(reg.opensAt)}`
+                : "Registration closed"}
+            </span>
+          )
         )}
       </div>
 
@@ -723,6 +797,8 @@ export default function EventDetail() {
               Once the organizer confirms they've received your ₱{event.price_php}, your status here will switch to "Confirmed" and you'll get your entry pass by email.
             </p>
           </div>
+        ) : !reg.open ? (
+          registrationNotice
         ) : (
           <>
             {guestFields}
@@ -745,6 +821,7 @@ export default function EventDetail() {
         )
       ) : (
         <>
+          {signup?.status !== "going" && registrationNotice}
           {guestFields}
           {customFieldsForm}
           {isWaitlisted ? (
@@ -756,6 +833,7 @@ export default function EventDetail() {
             </div>
           ) : (
             <div className="flex gap-3 mb-2">
+              {(reg.open || signup?.status === "going") && (
               <button
                 onClick={() => handleFreeSignup("going")}
                 disabled={guestSigningUp}
@@ -773,6 +851,7 @@ export default function EventDetail() {
                   ? "Join waitlist"
                   : "I'm going"}
               </button>
+              )}
               <button
                 onClick={() => handleFreeSignup("interested")}
                 disabled={guestSigningUp}
