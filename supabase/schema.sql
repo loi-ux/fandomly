@@ -559,3 +559,49 @@ alter table public.event_signups add column if not exists contact_email text;
 --   public.get_event_attendee_contacts(p_event_id uuid)
 --   public.update_signup_details(p_event_id uuid, p_attendee_id uuid,
 --                                p_contact_email text, p_custom_field_responses jsonb)
+
+
+-- ============================================================
+-- ONLY ORGANIZERS CAN MARK A SIGNUP AS PAID
+-- ============================================================
+-- Attendees can still sign up, edit their answers and upload proof, but
+-- payment, pass and check-in fields are reset/kept unless the change comes
+-- from the event's organizer, an admin, or the server (auth.uid() is null,
+-- e.g. the Xendit webhook).
+create or replace function public.protect_signup_payment_fields()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null
+     or exists (select 1 from public.events e where e.id = new.event_id and e.organizer_id = auth.uid())
+     or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin') then
+    return new;
+  end if;
+
+  if tg_op = 'INSERT' then
+    new.payment_status := 'unpaid';
+    new.amount_paid := null;
+    new.checked_in := false;
+    new.checked_in_at := null;
+    new.pass_email_sent_at := null;
+    new.xendit_invoice_id := null;
+    new.qr_token := gen_random_uuid();
+  else
+    new.payment_status := old.payment_status;
+    new.amount_paid := old.amount_paid;
+    new.checked_in := old.checked_in;
+    new.checked_in_at := old.checked_in_at;
+    new.pass_email_sent_at := old.pass_email_sent_at;
+    new.xendit_invoice_id := old.xendit_invoice_id;
+    new.qr_token := old.qr_token;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger protect_signup_payment_fields
+  before insert or update on public.event_signups
+  for each row execute function public.protect_signup_payment_fields();
