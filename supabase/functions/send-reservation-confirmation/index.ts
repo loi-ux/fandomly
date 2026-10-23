@@ -55,7 +55,14 @@ Deno.serve(async (req) => {
       .select("display_name")
       .eq("id", attendee_id)
       .single();
-    if (!attendeeAuth?.user?.email) {
+    const { data: signupRow } = await admin
+      .from("event_signups")
+      .select("contact_email")
+      .eq("event_id", event_id)
+      .eq("attendee_id", attendee_id)
+      .maybeSingle();
+    const toEmail = signupRow?.contact_email ?? attendeeAuth?.user?.email;
+    if (!toEmail) {
       return new Response(JSON.stringify({ error: "Attendee has no email on file" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -107,7 +114,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: Deno.env.get("RESEND_FROM_EMAIL") ?? "Fandomly <onboarding@resend.dev>",
-        to: attendeeAuth.user.email,
+        to: toEmail,
         subject: `You're holding a spot for ${event.title} — pay to confirm`,
         html: `
           <div style="font-family: sans-serif; max-width: 480px; margin: auto;">

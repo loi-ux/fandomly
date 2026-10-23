@@ -59,9 +59,10 @@ Deno.serve(async (req) => {
 
     const { data: signups } = await admin
       .from("event_signups")
-      .select("attendee_id")
+      .select("attendee_id, contact_email")
       .eq("event_id", event_id);
     const attendeeIds = [...new Set((signups ?? []).map((s) => s.attendee_id))];
+    const contactEmails = new Map((signups ?? []).map((s) => [s.attendee_id, s.contact_email]));
 
     const eventDate = new Date(event.event_date).toLocaleString("en-PH", {
       dateStyle: "full",
@@ -75,7 +76,8 @@ Deno.serve(async (req) => {
     await Promise.all(
       attendeeIds.map(async (id) => {
         const { data: userAuth } = await admin.auth.admin.getUserById(id);
-        if (!userAuth?.user?.email) return;
+        const toEmail = contactEmails.get(id) ?? userAuth?.user?.email;
+        if (!toEmail) return;
         const res = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -84,7 +86,7 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({
             from: Deno.env.get("RESEND_FROM_EMAIL") ?? "Fandomly <onboarding@resend.dev>",
-            to: userAuth.user.email,
+            to: toEmail,
             subject: `Cancelled: ${event.title}`,
             html: `
               <div style="font-family: sans-serif; max-width: 480px; margin: auto;">

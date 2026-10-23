@@ -18,6 +18,12 @@ export default function OrganizerEventAttendees() {
     }
   });
   const [search, setSearch] = useState("");
+  const [contacts, setContacts] = useState({});
+  const [editing, setEditing] = useState(null);
+  const [editEmail, setEditEmail] = useState("");
+  const [editResponses, setEditResponses] = useState({});
+  const [editError, setEditError] = useState(null);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   function changeView(next) {
     setView(next);
@@ -49,6 +55,49 @@ export default function OrganizerEventAttendees() {
       .eq("event_id", eventId)
       .order("created_at", { ascending: false });
     setWalkins(walkinData ?? []);
+
+    const { data: contactData } = await supabase.rpc("get_event_attendee_contacts", {
+      p_event_id: eventId,
+    });
+    setContacts(Object.fromEntries((contactData ?? []).map((c) => [c.attendee_id, c])));
+  }
+
+  function openEdit(s) {
+    setEditing(s);
+    setEditEmail(contacts[s.attendee_id]?.email ?? "");
+    setEditResponses({ ...(s.custom_field_responses ?? {}) });
+    setEditError(null);
+  }
+
+  async function handleSaveEdit(e) {
+    e.preventDefault();
+    if (!editing) return;
+    setSavingEdit(true);
+    setEditError(null);
+    const currentEmail = contacts[editing.attendee_id]?.email ?? "";
+    const trimmed = editEmail.trim();
+    const { data, error } = await supabase.rpc("update_signup_details", {
+      p_event_id: eventId,
+      p_attendee_id: editing.attendee_id,
+      p_contact_email: trimmed && trimmed.toLowerCase() !== currentEmail.toLowerCase() ? trimmed : null,
+      p_custom_field_responses: editResponses,
+    });
+    setSavingEdit(false);
+    if (error) {
+      setEditError(error.message);
+      return;
+    }
+    const changed = data?.[0]?.email_changed;
+    const wasPaid = editing.payment_status === "paid";
+    setEditing(null);
+    setMessage({
+      type: "success",
+      text:
+        changed && wasPaid
+          ? "Details saved. Tap \"Resend\" to send their pass to the new email."
+          : "Details saved.",
+    });
+    load();
   }
 
   useEffect(() => {
@@ -172,10 +221,34 @@ export default function OrganizerEventAttendees() {
 
   if (!event) return <p className="text-center py-16 text-ink-soft">Loading…</p>;
 
+  function editButton(s) {
+    return (
+      <button
+        onClick={() => openEdit(s)}
+        className="text-xs text-ink-soft font-medium hover:text-sky hover:underline"
+        title="Fix a misspelt email or wrong answer"
+      >
+        Edit
+      </button>
+    );
+  }
+
+  function renderEmail(s) {
+    const c = contacts[s.attendee_id];
+    if (!c) return null;
+    return (
+      <span title={c.email_corrected ? `Corrected — originally signed up as ${c.login_email}` : undefined}>
+        {c.email}
+        {c.email_corrected && <span className="text-sage-dark"> · corrected</span>}
+      </span>
+    );
+  }
+
   function renderActions(s, { inTable = false } = {}) {
     return (
       s.payment_status === "paid" ? (
             <div className="flex items-center gap-2">
+              {editButton(s)}
               {!inTable && (
                 <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-sage-dim text-sage-dark">
                   Confirmed{s.pass_email_sent_at ? "" : " (email pending)"}
@@ -201,6 +274,7 @@ export default function OrganizerEventAttendees() {
             </div>
           ) : (
             <div className="flex items-center gap-2">
+              {editButton(s)}
               {s.proof_of_payment_url && (
                 <button
                   onClick={() => handleViewProof(s.proof_of_payment_url)}
@@ -267,6 +341,7 @@ export default function OrganizerEventAttendees() {
         [
           s.attendee?.display_name,
           s.attendee?.city,
+          contacts[s.attendee_id]?.email,
           ...Object.values(s.custom_field_responses ?? {}),
         ]
           .filter(Boolean)
@@ -276,9 +351,10 @@ export default function OrganizerEventAttendees() {
 
   function downloadCsv() {
     const fields = event.custom_fields ?? [];
-    const header = ["Name", "City", ...fields.map((f) => f.label), "Payment", "Checked in"];
+    const header = ["Name", "Email", "City", ...fields.map((f) => f.label), "Payment", "Checked in"];
     const rows = activeSignups.map((s) => [
       s.attendee?.display_name ?? "",
+      contacts[s.attendee_id]?.email ?? "",
       s.attendee?.city ?? "",
       ...fields.map((f) => s.custom_field_responses?.[f.id] ?? ""),
       s.payment_status === "paid" ? "Paid" : s.proof_of_payment_url ? "Proof sent" : "Unpaid",
@@ -374,6 +450,7 @@ export default function OrganizerEventAttendees() {
                   <tr>
                     <th className="px-3 py-2.5 font-medium w-8">#</th>
                     <th className="px-3 py-2.5 font-medium sticky left-0 bg-paper-dim">Name</th>
+                    <th className="px-3 py-2.5 font-medium">Email</th>
                     <th className="px-3 py-2.5 font-medium">City</th>
                     {(event.custom_fields ?? []).map((field) => (
                       <th key={field.id} className="px-3 py-2.5 font-medium min-w-[10rem]">
@@ -392,6 +469,7 @@ export default function OrganizerEventAttendees() {
                       <td className="px-3 py-3 font-medium whitespace-nowrap sticky left-0 bg-paper">
                         {s.attendee?.display_name ?? "Unknown"}
                       </td>
+                      <td className="px-3 py-3 whitespace-nowrap">{renderEmail(s) ?? "—"}</td>
                       <td className="px-3 py-3 text-ink-soft whitespace-nowrap">
                         {s.attendee?.city || "—"}
                       </td>
@@ -431,9 +509,8 @@ export default function OrganizerEventAttendees() {
                 >
                   <div>
                     <p className="font-medium">{s.attendee?.display_name ?? "Unknown"}</p>
-                    <p className="text-sm text-ink-soft">
-                      {s.attendee?.city}
-                    </p>
+                    <p className="text-sm text-ink-soft break-all">{renderEmail(s)}</p>
+                    {s.attendee?.city && <p className="text-sm text-ink-soft">{s.attendee.city}</p>}
                     {event.custom_fields?.length > 0 && (
                       <div className="mt-1 space-y-0.5">
                         {event.custom_fields.map((field) => (
@@ -517,6 +594,84 @@ export default function OrganizerEventAttendees() {
           </div>
         )}
       </div>
+
+      {editing && (
+        <div
+          className="fixed inset-0 z-50 bg-ink/40 flex items-center justify-center px-4"
+          onClick={() => !savingEdit && setEditing(null)}
+        >
+          <form
+            onSubmit={handleSaveEdit}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-paper rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto space-y-3"
+          >
+            <h2 className="font-display text-xl">
+              Edit {editing.attendee?.display_name ?? "attendee"}
+            </h2>
+            <div>
+              <label className="text-sm font-medium">Email for this event</label>
+              <input
+                type="email"
+                required
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                className="mt-1 w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-sky focus:outline-none"
+              />
+              <p className="text-xs text-ink-soft mt-1">
+                Passes, reminders and updates for this event go here. Their Fandomly login stays the same.
+              </p>
+            </div>
+            {(event.custom_fields ?? []).map((field) => (
+              <div key={field.id}>
+                <label className="text-sm font-medium">{field.label}</label>
+                {field.type === "textarea" ? (
+                  <textarea
+                    rows={2}
+                    value={editResponses[field.id] ?? ""}
+                    onChange={(e) => setEditResponses({ ...editResponses, [field.id]: e.target.value })}
+                    className="mt-1 w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-sky focus:outline-none"
+                  />
+                ) : field.type === "select" ? (
+                  <select
+                    value={editResponses[field.id] ?? ""}
+                    onChange={(e) => setEditResponses({ ...editResponses, [field.id]: e.target.value })}
+                    className="mt-1 w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-sky focus:outline-none"
+                  >
+                    <option value="">Select…</option>
+                    {field.options?.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    value={editResponses[field.id] ?? ""}
+                    onChange={(e) => setEditResponses({ ...editResponses, [field.id]: e.target.value })}
+                    className="mt-1 w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-sky focus:outline-none"
+                  />
+                )}
+              </div>
+            ))}
+            {editError && <p className="text-danger text-sm">{editError}</p>}
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setEditing(null)}
+                disabled={savingEdit}
+                className="text-sm font-medium text-ink-soft hover:text-ink"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={savingEdit}
+                className="text-sm bg-ink text-paper rounded-full px-5 py-2 font-medium hover:bg-sky transition-colors disabled:opacity-50"
+              >
+                {savingEdit ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

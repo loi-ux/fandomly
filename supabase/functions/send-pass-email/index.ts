@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
 
     const { data: signup } = await admin
       .from("event_signups")
-      .select("qr_token, payment_status")
+      .select("qr_token, payment_status, contact_email")
       .eq("event_id", event_id)
       .eq("attendee_id", attendee_id)
       .single();
@@ -87,7 +87,9 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: Deno.env.get("RESEND_FROM_EMAIL") ?? "Fandomly <onboarding@resend.dev>",
-        to: attendeeAuth.user.email,
+        // A corrected email for this event (set by the attendee or organizer)
+        // wins over the login email.
+        to: signup.contact_email ?? attendeeAuth.user.email,
         subject: `Your pass for ${event.title}`,
         html: `
           <div style="font-family: sans-serif; max-width: 480px; margin: auto;">

@@ -74,13 +74,19 @@ export default function EventDetail() {
   const [notifyingOrganizer, setNotifyingOrganizer] = useState(false);
   const [notifyFailed, setNotifyFailed] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const [editingDetails, setEditingDetails] = useState(false);
+  const [detailsEmail, setDetailsEmail] = useState("");
+  const [detailsResponses, setDetailsResponses] = useState({});
+  const [detailsError, setDetailsError] = useState(null);
+  const [detailsSaved, setDetailsSaved] = useState(false);
+  const [savingDetails, setSavingDetails] = useState(false);
 
   async function loadSignup() {
     if (!user) return;
     const { data } = await supabase
       .from("event_signups")
       .select(
-        "status, payment_status, qr_token, custom_field_responses, waitlisted, checked_in, proof_of_payment_url, proof_uploaded_at"
+        "status, payment_status, qr_token, custom_field_responses, waitlisted, checked_in, proof_of_payment_url, proof_uploaded_at, contact_email"
       )
       .eq("event_id", id)
       .eq("attendee_id", user.id)
@@ -529,6 +535,140 @@ export default function EventDetail() {
     </div>
   );
 
+  const eventEmail = signup?.contact_email ?? user?.email ?? "";
+
+  function startEditDetails() {
+    setDetailsEmail(eventEmail);
+    setDetailsResponses({ ...(signup?.custom_field_responses ?? {}) });
+    setDetailsError(null);
+    setDetailsSaved(false);
+    setEditingDetails(true);
+  }
+
+  async function handleSaveDetails(e) {
+    e.preventDefault();
+    setSavingDetails(true);
+    setDetailsError(null);
+    const trimmed = detailsEmail.trim();
+    const { data, error } = await supabase.rpc("update_signup_details", {
+      p_event_id: id,
+      p_attendee_id: signup.attendee_id ?? user.id,
+      p_contact_email: trimmed && trimmed.toLowerCase() !== eventEmail.toLowerCase() ? trimmed : null,
+      p_custom_field_responses: detailsResponses,
+    });
+    setSavingDetails(false);
+    if (error) {
+      setDetailsError(error.message);
+      return;
+    }
+    const newEmail = data?.[0]?.email ?? eventEmail;
+    setSignup((sg) => ({
+      ...sg,
+      custom_field_responses: detailsResponses,
+      contact_email: newEmail.toLowerCase() === (user?.email ?? "").toLowerCase() ? null : newEmail,
+    }));
+    setResponses(detailsResponses);
+    setEditingDetails(false);
+    setDetailsSaved(true);
+  }
+
+  const showDetails =
+    hasReserved && !isPastEvent && event.status !== "cancelled" && signup?.status === "going";
+
+  const detailsSection = showDetails && (
+    <div className="border-2 border-ink/10 rounded-2xl p-5 mt-6">
+      <div className="flex items-center justify-between mb-2">
+        <p className="font-medium">Your details for this event</p>
+        {!editingDetails && (
+          <button onClick={startEditDetails} className="text-sm text-accent font-medium hover:underline">
+            Edit
+          </button>
+        )}
+      </div>
+      {editingDetails ? (
+        <form onSubmit={handleSaveDetails} className="space-y-3">
+          <div>
+            <label className="text-sm font-medium">Email</label>
+            <input
+              type="email"
+              required
+              value={detailsEmail}
+              onChange={(e) => setDetailsEmail(e.target.value)}
+              className="mt-1 w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-sky focus:outline-none"
+            />
+            <p className="text-xs text-ink-soft mt-1">
+              Your pass and event updates are sent here.
+            </p>
+          </div>
+          {(event.custom_fields ?? []).map((field) => (
+            <div key={field.id}>
+              <label className="text-sm font-medium">{field.label}</label>
+              {field.type === "textarea" ? (
+                <textarea
+                  rows={2}
+                  value={detailsResponses[field.id] ?? ""}
+                  onChange={(e) => setDetailsResponses({ ...detailsResponses, [field.id]: e.target.value })}
+                  className="mt-1 w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-sky focus:outline-none"
+                />
+              ) : field.type === "select" ? (
+                <select
+                  value={detailsResponses[field.id] ?? ""}
+                  onChange={(e) => setDetailsResponses({ ...detailsResponses, [field.id]: e.target.value })}
+                  className="mt-1 w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-sky focus:outline-none"
+                >
+                  <option value="">Select…</option>
+                  {field.options?.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  value={detailsResponses[field.id] ?? ""}
+                  onChange={(e) => setDetailsResponses({ ...detailsResponses, [field.id]: e.target.value })}
+                  className="mt-1 w-full border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-sky focus:outline-none"
+                />
+              )}
+            </div>
+          ))}
+          {detailsError && <p className="text-danger text-sm">{detailsError}</p>}
+          <div className="flex gap-3">
+            <button
+              type="submit"
+              disabled={savingDetails}
+              className="bg-ink text-paper rounded-full px-5 py-2 text-sm font-medium hover:bg-sky transition-colors disabled:opacity-50"
+            >
+              {savingDetails ? "Saving…" : "Save"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditingDetails(false)}
+              className="text-sm font-medium text-ink-soft hover:text-ink"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="text-sm space-y-0.5">
+          <p>
+            <span className="text-ink-soft">Email:</span> {eventEmail}
+          </p>
+          {(event.custom_fields ?? []).map((field) => (
+            <p key={field.id}>
+              <span className="text-ink-soft">{field.label}:</span>{" "}
+              {signup?.custom_field_responses?.[field.id] || "—"}
+            </p>
+          ))}
+          {detailsSaved && (
+            <p className="text-sage text-sm pt-1">
+              Saved. If your pass already went out, ask the organizer to resend it.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   const reviewSection = isPastEvent && signup?.checked_in && (
     <div className="border-2 border-ink/10 rounded-2xl p-5 mt-6">
       {existingReview ? (
@@ -870,6 +1010,7 @@ export default function EventDetail() {
         </>
       )}
 
+      {detailsSection}
       {reviewSection}
     </div>
   );

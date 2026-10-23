@@ -545,3 +545,17 @@ begin
     where p.id = v_attendee_id and e.id = v_event_id;
 end;
 $function$;
+
+
+-- ============================================================
+-- CONTACT CORRECTIONS (misspelt email / wrong answers)
+-- ============================================================
+-- contact_email overrides the login email for one event's emails, so a typo
+-- can be fixed without touching the attendee's account. Edited only through
+-- update_signup_details (attendee, the event's organizer, or an admin).
+-- Applied live as migration "signup_contact_corrections".
+alter table public.event_signups add column if not exists contact_email text;
+-- See the live database for the full bodies of:
+--   public.get_event_attendee_contacts(p_event_id uuid)
+--   public.update_signup_details(p_event_id uuid, p_attendee_id uuid,
+--                                p_contact_email text, p_custom_field_responses jsonb)
