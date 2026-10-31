@@ -639,3 +639,26 @@ grant update (quantity) on public.event_signups to authenticated;
 -- paid). Clears pass_email_sent_at for paid signups so the pass is resent.
 -- Applied live as migration "organizer_set_signup_quantity".
 --   public.set_signup_quantity(p_event_id uuid, p_attendee_id uuid, p_quantity integer)
+
+
+-- ============================================================
+-- CUSTOM EVENT LINKS — fandomly.site/<handle>/<slug>
+-- ============================================================
+-- profiles.handle: the organizer's link name (unique, 3–30 chars, only
+-- organizers/admins can set it, reserved words blocked so a handle can't
+-- shadow an app page). events.slug: the event part, unique per organizer.
+-- Applied live as migration "custom_event_links".
+alter table public.profiles add column if not exists handle text;
+alter table public.profiles add constraint profiles_handle_format
+  check (handle is null or handle ~ '^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$');
+create unique index if not exists profiles_handle_key on public.profiles (handle);
+
+alter table public.events add column if not exists slug text;
+alter table public.events add constraint events_slug_format
+  check (slug is null or slug ~ '^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$');
+create unique index if not exists events_organizer_slug_key on public.events (organizer_id, slug);
+
+grant update (handle) on public.profiles to authenticated;
+-- public.reserved_handles (word) — keep in sync with RESERVED_HANDLES in
+-- src/lib/links.js and with the app's top-level routes.
+-- public.validate_profile_handle() trigger — see the live database.

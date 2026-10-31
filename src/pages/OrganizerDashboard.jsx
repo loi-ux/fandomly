@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { formatRegistrationTime, registrationState } from "../lib/registration";
+import { eventPath } from "../lib/links";
 
 const statusStyles = {
   draft: "bg-paper-dim text-navy",
@@ -11,8 +12,15 @@ const statusStyles = {
 };
 
 export default function OrganizerDashboard() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [events, setEvents] = useState([]);
+  const [copiedId, setCopiedId] = useState(null);
+
+  function copyLink(event) {
+    navigator.clipboard?.writeText(`https://fandomly.site${eventPath(event, profile?.handle)}`);
+    setCopiedId(event.id);
+    setTimeout(() => setCopiedId((c) => (c === event.id ? null : c)), 2000);
+  }
   const [stats, setStats] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
 
@@ -38,7 +46,7 @@ export default function OrganizerDashboard() {
       const { data } = await supabase
         .from("events")
         .select(
-          "id, title, event_date, city, status, is_paid, price_php, listing_fee_status, registration_closed, registration_opens_at, registration_closes_at"
+          "id, title, slug, event_date, city, status, is_paid, price_php, listing_fee_status, registration_closed, registration_opens_at, registration_closes_at"
         )
         .eq("organizer_id", user.id)
         .order("event_date", { ascending: false });
@@ -145,6 +153,16 @@ export default function OrganizerDashboard() {
               </Link>
 
               <div className="flex items-center gap-3">
+                {event.status === "published" && (
+                  <button
+                    type="button"
+                    onClick={() => copyLink(event)}
+                    className="text-sm font-medium text-sky hover:underline"
+                    title={`https://fandomly.site${eventPath(event, profile?.handle)}`}
+                  >
+                    {copiedId === event.id ? "Copied ✓" : "Copy link"}
+                  </button>
+                )}
                 {event.status === "published" && new Date(event.event_date) > new Date() && (
                   <button
                     type="button"

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { eventPath } from "../lib/links";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -50,8 +51,10 @@ function googleCalendarUrl(event) {
   return `https://www.google.com/calendar/render?${params.toString()}`;
 }
 
-export default function EventDetail() {
-  const { id } = useParams();
+export default function EventDetail({ eventId } = {}) {
+  const params = useParams();
+  const id = eventId ?? params.id;
+  const navigate = useNavigate();
   const { user, sendPasswordReset } = useAuth();
   const [event, setEvent] = useState(null);
   const [signup, setSignup] = useState(null); // { status, payment_status, qr_token, waitlisted, checked_in } | null
@@ -101,10 +104,17 @@ export default function EventDetail() {
     async function load() {
       const { data: eventData } = await supabase
         .from("events")
-        .select("*, organizer:profiles!events_organizer_id_fkey(id, display_name)")
+        .select("*, organizer:profiles!events_organizer_id_fkey(id, display_name, handle)")
         .eq("id", id)
         .single();
       setEvent(eventData);
+
+      // Opened via the old /events/<id> address but the event has a custom
+      // link — show the nicer one in the address bar instead.
+      if (!eventId && eventData?.slug && eventData.organizer?.handle) {
+        navigate(eventPath(eventData), { replace: true });
+        return;
+      }
 
       if (eventData?.capacity) {
         // Attendees can only read their own signup rows, so the total comes

@@ -101,6 +101,7 @@ export function AuthProvider({ children }) {
     sendPasswordReset,
     updatePassword,
     requestOrganizerRole,
+    refreshProfile: () => (session?.user ? loadProfile(session.user.id) : Promise.resolve()),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

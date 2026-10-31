@@ -8,22 +8,29 @@ import {
   formatRegistrationTime,
   toLocalInputValue,
 } from "../lib/registration";
+import { toLinkText, handleError, slugError, SITE_HOST } from "../lib/links";
 
 // TODO: replace with your actual GCash details.
 const PLATFORM_PAYMENT_INFO = "GCash: Eloisa O. — 09284915513";
 
 export default function OrganizerEventEditor() {
   const { id } = useParams(); // undefined when creating a new event
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const isEditing = Boolean(id);
   const [showFeeInstructions, setShowFeeInstructions] = useState(false);
   const [savedEventId, setSavedEventId] = useState(null);
   const [markingPending, setMarkingPending] = useState(false);
+  // Custom link: fandomly.site/<handle>/<slug>. The handle belongs to the
+  // organizer (set once, shared by all their events); the slug is per event.
+  const [handleDraft, setHandleDraft] = useState("");
+  const [slugTouched, setSlugTouched] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const [groups, setGroups] = useState([]);
   const [form, setForm] = useState({
     title: "",
+    slug: "",
     description: "",
     event_date: "",
     venue: "",
@@ -108,6 +115,7 @@ export default function OrganizerEventEditor() {
           price_php: data.price_php ?? "",
           capacity: data.capacity ?? "",
           max_per_registration: data.max_per_registration ?? 1,
+          slug: data.slug ?? "",
           registration_closed: data.registration_closed ?? false,
           registration_opens_at: toLocalInputValue(data.registration_opens_at),
           registration_closes_at: toLocalInputValue(data.registration_closes_at),
@@ -307,8 +315,54 @@ export default function OrganizerEventEditor() {
       return null;
     }
 
+    // New events get a link from the title unless the organizer typed one.
+    const autoSlug = !isEditing && !slugTouched && !form.slug ? toLinkText(form.title) : "";
+    let slug = toLinkText(form.slug) || autoSlug;
+    // No link name yet and they didn't ask for a link → save without one.
+    if (slug && !profile?.handle && !handleDraft.trim() && !slugTouched) slug = "";
+    // Auto-made links shouldn't clash with the organizer's other events.
+    if (slug && slug === autoSlug && profile?.handle) {
+      const { data: taken } = await supabase
+        .from("events")
+        .select("slug")
+        .eq("organizer_id", user.id)
+        .like("slug", `${slug}%`);
+      const used = new Set((taken ?? []).map((e) => e.slug));
+      let candidate = slug;
+      for (let n = 2; used.has(candidate); n++) candidate = `${slug.slice(0, 55)}-${n}`;
+      slug = candidate;
+    }
+    const slugProblem = slugError(slug);
+    if (slugProblem) {
+      setError(`Event link: ${slugProblem}`);
+      return null;
+    }
+    // First custom link → claim the organizer's link name too.
+    if (slug && !profile?.handle) {
+      const handle = toLinkText(handleDraft, 30);
+      const handleProblem = handleError(handle);
+      if (handleProblem) {
+        setError(`Your link name: ${handleProblem}`);
+        return null;
+      }
+      const { error: handleSaveError } = await supabase
+        .from("profiles")
+        .update({ handle })
+        .eq("id", user.id);
+      if (handleSaveError) {
+        setError(
+          handleSaveError.code === "23505"
+            ? `fandomly.site/${handle} is already taken — try another link name.`
+            : handleSaveError.message
+        );
+        return null;
+      }
+      await refreshProfile();
+    }
+
     const payload = {
       ...form,
+      slug: slug || null,
       status,
       organizer_id: user.id,
       event_date: fromLocalInputValue(form.event_date),
@@ -348,13 +402,17 @@ export default function OrganizerEventEditor() {
       })),
     };
 
+    const friendly = (error) =>
+      error.code === "23505" && /slug/.test(error.message)
+        ? new Error("You already use that event link for another event — pick a different one.")
+        : error;
     if (isEditing) {
       const { error } = await supabase.from("events").update(payload).eq("id", id);
-      if (error) throw error;
+      if (error) throw friendly(error);
       return id;
     } else {
       const { data, error } = await supabase.from("events").insert(payload).select("id").single();
-      if (error) throw error;
+      if (error) throw friendly(error);
       return data.id;
     }
   }
@@ -498,6 +556,76 @@ export default function OrganizerEventEditor() {
             onChange={update("title")}
             className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 focus:border-sky focus:outline-none"
           />
+        </div>
+
+        <div className="border-2 border-ink/10 rounded-2xl p-4 space-y-3">
+          <div>
+            <p className="text-sm font-medium">Event link</p>
+            <p className="text-xs text-ink-soft mt-0.5">
+              A short, shareable address for this event. Optional — the regular link always works too.
+            </p>
+          </div>
+          {!profile?.handle && (
+            <div>
+              <label className="text-xs font-medium text-ink-soft">
+                Your link name (used for all your events — you only set this once)
+              </label>
+              <div className="mt-1 flex items-center border-2 border-ink/15 rounded-xl focus-within:border-sky overflow-hidden">
+                <span className="pl-3 text-sm text-ink-soft select-none">{SITE_HOST}/</span>
+                <input
+                  value={handleDraft}
+                  onChange={(e) => setHandleDraft(toLinkText(e.target.value, 30))}
+                  placeholder="moacebu"
+                  className="flex-1 min-w-0 py-2 pr-3 text-sm focus:outline-none bg-transparent"
+                />
+              </div>
+              {handleDraft && handleError(handleDraft) && (
+                <p className="text-xs text-danger mt-1">{handleError(handleDraft)}</p>
+              )}
+            </div>
+          )}
+          <div>
+            {!profile?.handle && (
+              <label className="text-xs font-medium text-ink-soft">This event</label>
+            )}
+            <div className="mt-1 flex items-center border-2 border-ink/15 rounded-xl focus-within:border-sky overflow-hidden">
+              <span className="pl-3 text-sm text-ink-soft select-none whitespace-nowrap">
+                {SITE_HOST}/{profile?.handle || handleDraft || "yourname"}/
+              </span>
+              <input
+                value={
+                  !slugTouched && !isEditing && !form.slug ? toLinkText(form.title) : form.slug
+                }
+                onChange={(e) => {
+                  setSlugTouched(true);
+                  setForm((f) => ({ ...f, slug: toLinkText(e.target.value) }));
+                }}
+                onBlur={() => {
+                  if (!slugTouched && !isEditing && !form.slug && form.title) {
+                    setForm((f) => ({ ...f, slug: toLinkText(f.title) }));
+                  }
+                }}
+                placeholder="stw"
+                className="flex-1 min-w-0 py-2 pr-3 text-sm focus:outline-none bg-transparent"
+              />
+            </div>
+            {form.slug && slugError(form.slug) && (
+              <p className="text-xs text-danger mt-1">{slugError(form.slug)}</p>
+            )}
+          </div>
+          {profile?.handle && form.slug && isEditing && form.status === "published" && (
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard?.writeText(`https://${SITE_HOST}/${profile.handle}/${form.slug}`);
+                setLinkCopied(true);
+                setTimeout(() => setLinkCopied(false), 2000);
+              }}
+              className="text-xs font-medium text-sky hover:underline"
+            >
+              {linkCopied ? "Copied ✓" : "Copy link"}
+            </button>
+          )}
         </div>
 
         <div>

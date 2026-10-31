@@ -2,7 +2,7 @@
 // (Facebook, Twitter, WhatsApp, etc.) don't execute JavaScript, so a plain
 // React SPA shows a bare/generic preview when a link is shared. This
 // intercepts ONLY requests from known crawler user-agents on /events/:id
-// and returns a small HTML page with real Open Graph tags pulled from
+// or a custom link (/:handle/:slug) and returns a small HTML page with real Open Graph tags pulled from
 // Supabase. Everyone else (regular browsers) passes through untouched.
 
 const BOT_PATTERN = /facebookexternalhit|Twitterbot|WhatsApp|Slackbot|Discordbot|LinkedInBot|TelegramBot|Pinterest|Googlebot|SkypeUriPreview|Line\//i;
@@ -20,18 +20,24 @@ export default async (request, context) => {
   }
 
   const url = new URL(request.url);
-  const match = url.pathname.match(/^\/events\/([a-f0-9-]+)/i);
-  if (!match) return context.next();
+  const idMatch = url.pathname.match(/^\/events\/([a-f0-9-]+)/i);
+  const linkMatch = !idMatch && url.pathname.match(/^\/([a-z0-9-]{3,30})\/([a-z0-9-]{1,60})\/?$/i);
+  if (!idMatch && !linkMatch) return context.next();
 
   const supabaseUrl = Deno.env.get("VITE_SUPABASE_URL");
   const supabaseAnonKey = Deno.env.get("VITE_SUPABASE_ANON_KEY");
   if (!supabaseUrl || !supabaseAnonKey) return context.next();
 
   try {
-    const res = await fetch(
-      `${supabaseUrl}/rest/v1/events?id=eq.${match[1]}&select=title,description,banner_url,event_date,city,venue`,
-      { headers: { apikey: supabaseAnonKey, Authorization: `Bearer ${supabaseAnonKey}` } }
-    );
+    const fields = "title,description,banner_url,event_date,city,venue";
+    const query = idMatch
+      ? `id=eq.${idMatch[1]}&select=${fields}`
+      : `slug=eq.${encodeURIComponent(linkMatch[2].toLowerCase())}` +
+        `&organizer.handle=eq.${encodeURIComponent(linkMatch[1].toLowerCase())}` +
+        `&select=${fields},organizer:profiles!events_organizer_id_fkey!inner(handle)`;
+    const res = await fetch(`${supabaseUrl}/rest/v1/events?${query}`, {
+      headers: { apikey: supabaseAnonKey, Authorization: `Bearer ${supabaseAnonKey}` },
+    });
     const [event] = await res.json();
     if (!event) return context.next();
 
@@ -69,4 +75,7 @@ export default async (request, context) => {
   }
 };
 
-export const config = { path: "/events/*" };
+export const config = {
+  path: ["/events/*", "/*/*"],
+  excludedPath: ["/assets/*", "/*.js", "/*.css", "/*.png", "/*.svg", "/*.ico", "/*.webmanifest"],
+};

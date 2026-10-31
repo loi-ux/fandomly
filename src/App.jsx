@@ -22,6 +22,7 @@ const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const CheckIn = lazy(() => import("./pages/CheckIn"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const CustomLink = lazy(() => import("./pages/CustomLink"));
 
 function PageFallback() {
   return <p className="text-center py-16 text-ink-soft">Loading…</p>;
@@ -97,6 +98,10 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* Custom links — fixed routes above always win over these. */}
+          <Route path="/:handle" element={<CustomLink />} />
+          <Route path="/:handle/:slug" element={<CustomLink />} />
         </Routes>
       </Suspense>
       <Footer />

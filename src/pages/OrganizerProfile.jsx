@@ -4,8 +4,9 @@ import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import EventCard from "../components/EventCard";
 
-export default function OrganizerProfile() {
-  const { id } = useParams();
+export default function OrganizerProfile({ organizerId } = {}) {
+  const params = useParams();
+  const id = organizerId ?? params.id;
   const { user } = useAuth();
   const [profile, setProfile] = useState(null);
   const [events, setEvents] = useState([]);
