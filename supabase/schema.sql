@@ -634,3 +634,8 @@ grant update (quantity) on public.event_signups to authenticated;
 --   public.event_spots_taken(p_event_id uuid) returns integer
 -- check_in_attendee(p_qr_token) now also returns `tickets` (the quantity).
 -- See the live database for the full bodies.
+
+-- Organizer/admin changes a signup's number of spots (attendees can't once
+-- paid). Clears pass_email_sent_at for paid signups so the pass is resent.
+-- Applied live as migration "organizer_set_signup_quantity".
+--   public.set_signup_quantity(p_event_id uuid, p_attendee_id uuid, p_quantity integer)

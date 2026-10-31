@@ -22,6 +22,7 @@ export default function OrganizerEventAttendees() {
   const [editing, setEditing] = useState(null);
   const [editEmail, setEditEmail] = useState("");
   const [editResponses, setEditResponses] = useState({});
+  const [editQuantity, setEditQuantity] = useState(1);
   const [editError, setEditError] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -66,6 +67,7 @@ export default function OrganizerEventAttendees() {
     setEditing(s);
     setEditEmail(contacts[s.attendee_id]?.email ?? "");
     setEditResponses({ ...(s.custom_field_responses ?? {}) });
+    setEditQuantity(s.quantity ?? 1);
     setEditError(null);
   }
 
@@ -76,6 +78,25 @@ export default function OrganizerEventAttendees() {
     setEditError(null);
     const currentEmail = contacts[editing.attendee_id]?.email ?? "";
     const trimmed = editEmail.trim();
+    const newQuantity = parseInt(editQuantity, 10);
+    const quantityChanged = newQuantity !== (editing.quantity ?? 1);
+    if (quantityChanged) {
+      if (!(newQuantity >= 1 && newQuantity <= 20)) {
+        setSavingEdit(false);
+        setEditError("Spots must be between 1 and 20.");
+        return;
+      }
+      const { error: qtyError } = await supabase.rpc("set_signup_quantity", {
+        p_event_id: eventId,
+        p_attendee_id: editing.attendee_id,
+        p_quantity: newQuantity,
+      });
+      if (qtyError) {
+        setSavingEdit(false);
+        setEditError(qtyError.message);
+        return;
+      }
+    }
     const { data, error } = await supabase.rpc("update_signup_details", {
       p_event_id: eventId,
       p_attendee_id: editing.attendee_id,
@@ -93,8 +114,10 @@ export default function OrganizerEventAttendees() {
     setMessage({
       type: "success",
       text:
-        changed && wasPaid
-          ? "Details saved. Tap \"Resend\" to send their pass to the new email."
+        (changed || quantityChanged) && wasPaid
+          ? changed
+            ? "Details saved. Tap \"Resend\" to send their pass to the new email."
+            : "Details saved. Tap \"Resend\" to email them their updated pass."
           : "Details saved.",
     });
     load();
@@ -226,7 +249,7 @@ export default function OrganizerEventAttendees() {
       <button
         onClick={() => openEdit(s)}
         className="text-xs text-ink-soft font-medium hover:text-sky hover:underline"
-        title="Fix a misspelt email or wrong answer"
+        title="Fix a misspelt email, wrong answer or number of spots"
       >
         Edit
       </button>
@@ -647,6 +670,42 @@ export default function OrganizerEventAttendees() {
               <p className="text-xs text-ink-soft mt-1">
                 Passes, reminders and updates for this event go here. Their Fandomly login stays the same.
               </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Spots</label>
+              <input
+                type="number"
+                min="1"
+                max="20"
+                required
+                value={editQuantity}
+                onChange={(e) => setEditQuantity(e.target.value)}
+                className="mt-1 w-24 border-2 border-ink/15 rounded-lg px-3 py-1.5 text-sm focus:border-sky focus:outline-none"
+              />
+              {(() => {
+                const oldQty = editing.quantity ?? 1;
+                const newQty = parseInt(editQuantity, 10) || 0;
+                const price = Number(event.price_php || 0);
+                const peso = (n) => `₱${Number(n).toLocaleString("en-PH")}`;
+                if (newQty === oldQty || newQty < 1) {
+                  return (
+                    <p className="text-xs text-ink-soft mt-1">
+                      How many people this registration (and its one pass) covers.
+                    </p>
+                  );
+                }
+                const paid = editing.payment_status === "paid";
+                const diff = (newQty - oldQty) * price;
+                return (
+                  <p className="text-xs text-navy bg-marigold-dim rounded-lg px-3 py-2 mt-2">
+                    {oldQty} → {newQty} spots
+                    {price > 0 && ` · new total ${peso(newQty * price)}`}.
+                    {paid && price > 0 && diff > 0 && ` They've already paid for ${oldQty} — collect ${peso(diff)} more.`}
+                    {paid && price > 0 && diff < 0 && ` They've paid for ${oldQty} — you may owe a ${peso(-diff)} refund.`}
+                    {paid && " Resend their pass after saving so it shows the new number."}
+                  </p>
+                );
+              })()}
             </div>
             {(event.custom_fields ?? []).map((field) => (
               <div key={field.id}>
