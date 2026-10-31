@@ -39,6 +39,7 @@ export default function OrganizerEventEditor() {
     is_paid: false,
     price_php: "",
     capacity: "",
+    max_per_registration: 1,
     registration_closed: false,
     registration_opens_at: "",
     registration_closes_at: "",
@@ -106,6 +107,7 @@ export default function OrganizerEventEditor() {
           tags: data.tags ?? [],
           price_php: data.price_php ?? "",
           capacity: data.capacity ?? "",
+          max_per_registration: data.max_per_registration ?? 1,
           registration_closed: data.registration_closed ?? false,
           registration_opens_at: toLocalInputValue(data.registration_opens_at),
           registration_closes_at: toLocalInputValue(data.registration_closes_at),
@@ -314,6 +316,7 @@ export default function OrganizerEventEditor() {
       lng: form.lng ? parseFloat(form.lng) : null,
       price_php: form.is_paid ? Number(form.price_php) : null,
       capacity: form.capacity ? Number(form.capacity) : null,
+      max_per_registration: Math.min(Math.max(parseInt(form.max_per_registration, 10) || 1, 1), 20),
       registration_closed: Boolean(form.registration_closed),
       registration_opens_at: fromLocalInputValue(form.registration_opens_at),
       registration_closes_at: fromLocalInputValue(form.registration_closes_at),
@@ -583,6 +586,27 @@ export default function OrganizerEventEditor() {
           />
           <p className="text-xs text-ink-soft mt-1">
             Once full, new signups go on a waitlist instead of taking a spot.
+          </p>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium">Registrations per person</label>
+          <select
+            value={form.max_per_registration}
+            onChange={update("max_per_registration")}
+            className="mt-1 w-full border-2 border-ink/15 rounded-xl px-3 py-2 bg-white focus:border-sky focus:outline-none"
+          >
+            <option value={1}>1 — each attendee registers only themselves</option>
+            {Array.from({ length: 19 }, (_, i) => i + 2).map((n) => (
+              <option key={n} value={n}>
+                Up to {n} — attendees can register friends too
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-ink-soft mt-1">
+            Lets one attendee reserve several spots in one go (e.g. for their friends).
+            They pay for all of them, get one pass that admits the whole group, and each
+            one counts toward capacity.
           </p>
         </div>
 

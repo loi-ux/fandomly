@@ -605,3 +605,32 @@ $$;
 create trigger protect_signup_payment_fields
   before insert or update on public.event_signups
   for each row execute function public.protect_signup_payment_fields();
+
+
+-- ============================================================
+-- MULTIPLE REGISTRATIONS PER ATTENDEE (quantity)
+-- ============================================================
+-- Organizers set events.max_per_registration (1 = off, up to 20). An
+-- attendee picks how many spots they're registering for; one signup row
+-- holds the group, pays price × quantity, and gets one pass that admits
+-- everyone. Capacity counts quantity, not rows.
+-- Applied live as migration "multi_registration_quantity".
+alter table public.events
+  add column if not exists max_per_registration integer not null default 1;
+alter table public.events add constraint max_per_registration_range
+  check (max_per_registration between 1 and 20);
+
+alter table public.event_signups
+  add column if not exists quantity integer not null default 1;
+alter table public.event_signups add constraint signup_quantity_range
+  check (quantity between 1 and 20);
+grant insert (quantity) on public.event_signups to authenticated;
+grant update (quantity) on public.event_signups to authenticated;
+
+-- Attendees can't exceed the event's limit, and can't change quantity once
+-- paid or checked in (organizers, admins and the server can).
+--   public.enforce_signup_quantity()  (trigger before insert/update of quantity)
+-- Total spots taken, readable by anyone (attendees can't see others' rows):
+--   public.event_spots_taken(p_event_id uuid) returns integer
+-- check_in_attendee(p_qr_token) now also returns `tickets` (the quantity).
+-- See the live database for the full bodies.

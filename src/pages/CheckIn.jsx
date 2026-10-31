@@ -52,12 +52,20 @@ export default function CheckIn() {
           <p className="text-ink-soft">
             {result.display_name} was already scanned for {result.event_title}.
           </p>
+          {result.tickets > 1 && (
+            <p className="text-ink-soft mt-2">This pass covers {result.tickets} people.</p>
+          )}
         </>
       ) : (
         <>
           <p className="font-display text-2xl text-sage mb-2">Checked in ✓</p>
+          {result?.tickets > 1 && (
+            <p className="font-display text-4xl text-navy my-4">Admit {result.tickets}</p>
+          )}
           <p className="text-ink-soft">
-            {result?.display_name} is in for {result?.event_title}.
+            {result?.tickets > 1
+              ? `${result?.display_name}'s group of ${result.tickets} is in for ${result?.event_title}.`
+              : `${result?.display_name} is in for ${result?.event_title}.`}
           </p>
         </>
       )}

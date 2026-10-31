@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
 
     const { data: signup } = await admin
       .from("event_signups")
-      .select("qr_token, payment_status, contact_email")
+      .select("qr_token, payment_status, contact_email, quantity")
       .eq("event_id", event_id)
       .eq("attendee_id", attendee_id)
       .single();
@@ -96,6 +96,7 @@ Deno.serve(async (req) => {
             <h2>You're confirmed, ${attendeeProfile?.display_name ?? "there"}! 🎉</h2>
             <p><strong>${event.title}</strong></p>
             <p>${eventDate}<br/>${event.venue}, ${event.city}</p>
+            ${(signup.quantity ?? 1) > 1 ? `<p style="font-size:18px;"><strong>This pass admits ${signup.quantity} people.</strong> Arrive together — one scan checks in your whole group.</p>` : ""}
             <p>Show this QR code at the door, or the organizer can scan it:</p>
             <img src="${qrImageUrl}" alt="Your entry pass" width="250" height="250" />
             <p style="color:#888;font-size:12px;">If the image doesn't load, save this link: ${checkInUrl}</p>

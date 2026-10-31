@@ -57,11 +57,17 @@ Deno.serve(async (req) => {
       .single();
     const { data: signupRow } = await admin
       .from("event_signups")
-      .select("contact_email")
+      .select("contact_email, quantity")
       .eq("event_id", event_id)
       .eq("attendee_id", attendee_id)
       .maybeSingle();
     const toEmail = signupRow?.contact_email ?? attendeeAuth?.user?.email;
+    const quantity = signupRow?.quantity ?? 1;
+    const peso = (n: number) => `₱${Number(n).toLocaleString("en-PH")}`;
+    const total = Number(event.price_php || 0) * quantity;
+    const amountText = quantity > 1
+      ? `${peso(total)} (${quantity} spots × ${peso(event.price_php)})`
+      : peso(event.price_php);
     if (!toEmail) {
       return new Response(JSON.stringify({ error: "Attendee has no email on file" }), {
         status: 400,
@@ -115,13 +121,15 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         from: Deno.env.get("RESEND_FROM_EMAIL") ?? "Fandomly <onboarding@resend.dev>",
         to: toEmail,
-        subject: `You're holding a spot for ${event.title} — pay to confirm`,
+        subject: quantity > 1
+          ? `You're holding ${quantity} spots for ${event.title} — pay to confirm`
+          : `You're holding a spot for ${event.title} — pay to confirm`,
         html: `
           <div style="font-family: sans-serif; max-width: 480px; margin: auto;">
-            <h2>Hi ${attendeeProfile?.display_name ?? "there"}, your spot is held!</h2>
+            <h2>Hi ${attendeeProfile?.display_name ?? "there"}, ${quantity > 1 ? `your ${quantity} spots are` : "your spot is"} held!</h2>
             <p><strong>${event.title}</strong></p>
             <p>${eventDate}<br/>${event.venue}, ${event.city}</p>
-            <p>This spot isn't confirmed yet — pay ₱${event.price_php} using one of the methods below,
+            <p>${quantity > 1 ? "These spots aren't" : "This spot isn't"} confirmed yet — pay ${amountText} using one of the methods below,
             then come back and upload your proof of payment so the organizer can confirm you:</p>
             ${paymentBlock}
             <p style="text-align:center;margin:20px 0;">

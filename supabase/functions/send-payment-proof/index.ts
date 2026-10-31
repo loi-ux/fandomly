@@ -71,6 +71,18 @@ Deno.serve(async (req) => {
       .eq("id", userData.user.id)
       .single();
 
+    const { data: signupRow } = await admin
+      .from("event_signups")
+      .select("quantity")
+      .eq("event_id", event_id)
+      .eq("attendee_id", userData.user.id)
+      .maybeSingle();
+    const quantity = signupRow?.quantity ?? 1;
+    const peso = (n: number) => `₱${Number(n).toLocaleString("en-PH")}`;
+    const amountText = quantity > 1
+      ? `${peso(Number(event.price_php || 0) * quantity)} for ${quantity} spots`
+      : peso(event.price_php);
+
     const { data: fileBlob, error: downloadError } = await admin.storage
       .from("payment-proofs")
       .download(proof_path);
@@ -109,7 +121,7 @@ Deno.serve(async (req) => {
             <div style="font-family: sans-serif; max-width: 480px; margin: auto;">
               <h2>New proof of payment</h2>
               <p><strong>${attendeeProfile?.display_name ?? "An attendee"}</strong> just uploaded proof of
-              payment for <strong>${event.title}</strong> (₱${event.price_php}).</p>
+              payment for <strong>${event.title}</strong> (${amountText}).</p>
               <p>It's attached to this email, and also saved on their signup in your Fandomly attendee list.</p>
               <p>Once you've checked it, mark them as paid from the event's attendee list so they get their
               entry pass.</p>

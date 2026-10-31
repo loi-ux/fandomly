@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
 
     const { data: signup } = await admin
       .from("event_signups")
-      .select("payment_status, contact_email")
+      .select("payment_status, contact_email, quantity")
       .eq("event_id", event_id)
       .eq("attendee_id", attendee_id)
       .single();
@@ -73,6 +73,11 @@ Deno.serve(async (req) => {
       .eq("id", attendee_id)
       .single();
     const toEmail = signup.contact_email ?? attendeeAuth?.user?.email;
+    const quantity = signup.quantity ?? 1;
+    const peso = (n: number) => `₱${Number(n).toLocaleString("en-PH")}`;
+    const amountText = quantity > 1
+      ? `${peso(Number(event.price_php || 0) * quantity)} (${quantity} spots × ${peso(event.price_php)})`
+      : peso(event.price_php);
     if (!toEmail) {
       return new Response(JSON.stringify({ error: "Attendee has no email on file" }), {
         status: 400,
@@ -131,7 +136,7 @@ Deno.serve(async (req) => {
           <div style="font-family: sans-serif; max-width: 480px; margin: auto;">
             <h2>Hi ${attendeeProfile?.display_name ?? "there"}, don't lose your spot!</h2>
             <p><strong>${event.title}</strong> is coming up on ${eventDate}.</p>
-            <p>You reserved a spot but haven't completed your ₱${event.price_php} payment yet. Send it soon to confirm your spot and get your entry pass:</p>
+            <p>You reserved ${quantity > 1 ? `${quantity} spots` : "a spot"} but haven't completed your ${amountText} payment yet. Send it soon to confirm ${quantity > 1 ? "your spots" : "your spot"} and get your entry pass:</p>
             ${paymentBlock}
           </div>
         `,

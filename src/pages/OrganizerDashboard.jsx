@@ -50,22 +50,24 @@ export default function OrganizerDashboard() {
       const { data: signups } = eventIds.length
         ? await supabase
             .from("event_signups")
-            .select("event_id, status, payment_status, waitlisted, checked_in")
+            .select("event_id, status, quantity, payment_status, waitlisted, checked_in")
             .in("event_id", eventIds)
         : { data: [] };
 
       const confirmed = (signups ?? []).filter((s) => s.status === "going" && !s.waitlisted);
+      const qty = (s) => s.quantity ?? 1;
       const revenue = confirmed.reduce((sum, s) => {
-        if (s.payment_status === "paid") return sum + Number(priceByEvent[s.event_id] || 0);
+        if (s.payment_status === "paid") return sum + Number(priceByEvent[s.event_id] || 0) * qty(s);
         return sum;
       }, 0);
-      const checkedIn = confirmed.filter((s) => s.checked_in).length;
+      const confirmedSpots = confirmed.reduce((n, s) => n + qty(s), 0);
+      const checkedIn = confirmed.filter((s) => s.checked_in).reduce((n, s) => n + qty(s), 0);
 
       setStats({
         publishedCount: (data ?? []).filter((e) => e.status === "published").length,
-        totalConfirmed: confirmed.length,
+        totalConfirmed: confirmedSpots,
         revenue,
-        checkInRate: confirmed.length ? Math.round((checkedIn / confirmed.length) * 100) : null,
+        checkInRate: confirmedSpots ? Math.round((checkedIn / confirmedSpots) * 100) : null,
       });
     }
     if (user) load();

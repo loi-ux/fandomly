@@ -55,7 +55,8 @@ export default function EventDetail() {
   const { user, sendPasswordReset } = useAuth();
   const [event, setEvent] = useState(null);
   const [signup, setSignup] = useState(null); // { status, payment_status, qr_token, waitlisted, checked_in } | null
-  const [goingCount, setGoingCount] = useState(0);
+  const [goingCount, setGoingCount] = useState(0); // spots taken (sums each signup's quantity)
+  const [quantity, setQuantity] = useState(1); // how many spots this attendee is registering for
   const [loading, setLoading] = useState(true);
   const [reserving, setReserving] = useState(false);
   const [tagGroups, setTagGroups] = useState([]);
@@ -86,13 +87,14 @@ export default function EventDetail() {
     const { data } = await supabase
       .from("event_signups")
       .select(
-        "status, payment_status, qr_token, custom_field_responses, waitlisted, checked_in, proof_of_payment_url, proof_uploaded_at, contact_email"
+        "status, payment_status, qr_token, custom_field_responses, waitlisted, checked_in, proof_of_payment_url, proof_uploaded_at, contact_email, quantity"
       )
       .eq("event_id", id)
       .eq("attendee_id", user.id)
       .maybeSingle();
     setSignup(data ? { ...data, attendee_id: user.id } : null);
     if (data?.custom_field_responses) setResponses(data.custom_field_responses);
+    if (data?.quantity) setQuantity(data.quantity);
   }
 
   useEffect(() => {
@@ -105,13 +107,10 @@ export default function EventDetail() {
       setEvent(eventData);
 
       if (eventData?.capacity) {
-        const { count } = await supabase
-          .from("event_signups")
-          .select("*", { count: "exact", head: true })
-          .eq("event_id", id)
-          .eq("status", "going")
-          .eq("waitlisted", false);
-        setGoingCount(count ?? 0);
+        // Attendees can only read their own signup rows, so the total comes
+        // from a database function that adds up everyone's quantity.
+        const { data: taken } = await supabase.rpc("event_spots_taken", { p_event_id: id });
+        setGoingCount(taken ?? 0);
       }
 
       if (eventData?.tags?.length) {
@@ -198,8 +197,18 @@ export default function EventDetail() {
     return true;
   }
 
-  function isFull() {
-    return Boolean(event.capacity) && goingCount >= event.capacity;
+  function isFull(qty = 1) {
+    return Boolean(event.capacity) && goingCount + qty > event.capacity;
+  }
+
+  // Most a single attendee can pick: the event's per-person limit, but
+  // never more than the spots still open (unless it's already full, in
+  // which case they're joining the waitlist anyway).
+  function maxQuantity() {
+    const perPerson = event.max_per_registration ?? 1;
+    if (!event.capacity) return perPerson;
+    const left = event.capacity - goingCount;
+    return left > 0 ? Math.min(perPerson, left) : perPerson;
   }
 
   // Returns the signed-in user's id, or — if no one is logged in — creates
@@ -307,14 +316,17 @@ export default function EventDetail() {
     if (status === "going" && !validateResponses()) return;
     const uid = await getOrCreateUserId();
     if (!uid) return;
-    const willWaitlist = status === "going" && isFull();
+    const alreadyCounted = signup?.status === "going" && !signup?.waitlisted;
+    const qty = status === "going" ? Math.min(quantity, maxQuantity()) : 1;
+    const willWaitlist = status === "going" && !alreadyCounted && isFull(qty);
     const { error } = await supabase.from("event_signups").upsert(
       {
         event_id: id,
         attendee_id: uid,
         status,
+        quantity: alreadyCounted ? signup.quantity ?? 1 : qty,
         custom_field_responses: responses,
-        waitlisted: willWaitlist,
+        waitlisted: alreadyCounted ? false : willWaitlist,
       },
       { onConflict: "event_id,attendee_id" }
     );
@@ -322,7 +334,17 @@ export default function EventDetail() {
       setFormError(error.message);
       return;
     }
-    setSignup((s) => ({ ...s, status, waitlisted: willWaitlist }));
+    if (!alreadyCounted && status === "going" && !willWaitlist) {
+      setGoingCount((c) => c + qty);
+    } else if (alreadyCounted && status !== "going") {
+      setGoingCount((c) => Math.max(c - (signup.quantity ?? 1), 0));
+    }
+    setSignup((s) => ({
+      ...s,
+      status,
+      quantity: alreadyCounted ? s.quantity ?? 1 : qty,
+      waitlisted: alreadyCounted ? false : willWaitlist,
+    }));
   }
 
   async function handleReserve() {
@@ -338,12 +360,14 @@ export default function EventDetail() {
       setReserving(false);
       return;
     }
-    const willWaitlist = isFull();
+    const qty = Math.min(quantity, maxQuantity());
+    const willWaitlist = isFull(qty);
     const { error } = await supabase.from("event_signups").upsert(
       {
         event_id: id,
         attendee_id: uid,
         status: "going",
+        quantity: qty,
         custom_field_responses: responses,
         waitlisted: willWaitlist,
       },
@@ -360,6 +384,7 @@ export default function EventDetail() {
     // loadSignup() bails out early when it doesn't see a user yet.
     setSignup({
       status: "going",
+      quantity: qty,
       payment_status: "unpaid",
       waitlisted: willWaitlist,
       custom_field_responses: responses,
@@ -371,6 +396,7 @@ export default function EventDetail() {
     // Waitlisted attendees aren't holding a confirmed spot yet, so there's
     // nothing to pay for until they're promoted — skip the payment email.
     if (!willWaitlist) {
+      setGoingCount((c) => c + qty);
       supabase.functions.invoke("send-reservation-confirmation", {
         body: { event_id: id, attendee_id: uid, origin: window.location.origin },
       });
@@ -451,6 +477,46 @@ export default function EventDetail() {
   const isWaitlisted = signup?.waitlisted;
   const isConfirmed = isPaid ? signup?.payment_status === "paid" : signup?.status === "going" && !isWaitlisted;
   const isPastEvent = new Date(event.event_date) < new Date();
+  const allowsMultiple = (event.max_per_registration ?? 1) > 1;
+  const myQuantity = signup?.quantity ?? quantity;
+  const peso = (n) => `₱${Number(n).toLocaleString("en-PH")}`;
+  const totalPrice = Number(event.price_php || 0) * myQuantity;
+  const spotsWord = (n) => `${n} ${n === 1 ? "spot" : "spots"}`;
+  const quantityPicker = allowsMultiple && (
+    <div className="mb-4">
+      <label className="text-sm font-medium">How many are you registering for?</label>
+      <div className="mt-2 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setQuantity((q) => Math.max(q - 1, 1))}
+          disabled={quantity <= 1}
+          aria-label="Fewer"
+          className="w-10 h-10 rounded-full border-2 border-ink/20 text-lg font-medium disabled:opacity-30 hover:border-accent"
+        >
+          −
+        </button>
+        <span className="font-display text-2xl w-8 text-center tabular-nums">{quantity}</span>
+        <button
+          type="button"
+          onClick={() => setQuantity((q) => Math.min(q + 1, maxQuantity()))}
+          disabled={quantity >= maxQuantity()}
+          aria-label="More"
+          className="w-10 h-10 rounded-full border-2 border-ink/20 text-lg font-medium disabled:opacity-30 hover:border-accent"
+        >
+          +
+        </button>
+        <span className="text-sm text-ink-soft">
+          {isPaid && `${peso(event.price_php)} × ${quantity} = ${peso(Number(event.price_php || 0) * quantity)} · `}
+          max {maxQuantity()} per person
+        </span>
+      </div>
+      {quantity > 1 && (
+        <p className="text-xs text-ink-soft mt-2">
+          You'll get one pass that admits all {quantity} of you — come in together.
+        </p>
+      )}
+    </div>
+  );
   const reg = registrationState(event, now);
   const registrationNotice = !reg.open && (
     <div className="border-2 border-ink/15 bg-paper-dim rounded-2xl p-5 mb-4 text-navy">
@@ -827,7 +893,9 @@ export default function EventDetail() {
       ) : isPaid ? (
         isConfirmed ? (
           <div className="border-2 border-sage rounded-2xl p-5 text-center">
-            <p className="font-display text-lg text-sage mb-3">Confirmed ✓</p>
+            <p className="font-display text-lg text-sage mb-3">
+              Confirmed ✓{myQuantity > 1 && ` · admits ${myQuantity}`}
+            </p>
             {qrImageUrl && (
               <img src={qrImageUrl} alt="Your entry pass" className="mx-auto mb-3" />
             )}
@@ -845,10 +913,15 @@ export default function EventDetail() {
           </div>
         ) : hasReserved ? (
           <div className="border-2 border-marigold bg-marigold-dim rounded-2xl p-5 text-navy">
-            <p className="font-medium mb-1">Reserved — pay to confirm your spot</p>
+            <p className="font-medium mb-1">
+              {myQuantity > 1
+                ? `Reserved ${spotsWord(myQuantity)} — pay ${peso(totalPrice)} to confirm`
+                : "Reserved — pay to confirm your spot"}
+            </p>
             <p className="text-sm mb-3">
-              You're holding a spot, but it's not confirmed until the
-              organizer receives your payment.
+              You're holding {myQuantity > 1 ? `${myQuantity} spots` : "a spot"}, but{" "}
+              {myQuantity > 1 ? "they're" : "it's"} not confirmed until the organizer receives
+              your payment{myQuantity > 1 && ` of ${peso(totalPrice)} (${peso(event.price_php)} × ${myQuantity})`}.
             </p>
             <div className="space-y-2">
               {(event.payment_methods ?? []).includes("qr_code") && event.payment_qr_url && (
@@ -934,7 +1007,7 @@ export default function EventDetail() {
             )}
 
             <p className="text-xs text-navy/70 mt-3">
-              Once the organizer confirms they've received your ₱{event.price_php}, your status here will switch to "Confirmed" and you'll get your entry pass by email.
+              Once the organizer confirms they've received your {peso(totalPrice)}, your status here will switch to "Confirmed" and you'll get your entry pass by email.
             </p>
           </div>
         ) : !reg.open ? (
@@ -943,6 +1016,7 @@ export default function EventDetail() {
           <>
             {guestFields}
             {customFieldsForm}
+            {quantityPicker}
             <button
               onClick={handleReserve}
               disabled={reserving || guestSigningUp}
@@ -952,9 +1026,11 @@ export default function EventDetail() {
                 ? "Setting up your account…"
                 : reserving
                 ? "Reserving…"
-                : isFull()
+                : isFull(quantity)
                 ? "Join waitlist"
-                : `Reserve my spot — ₱${event.price_php}`}
+                : quantity > 1
+                ? `Reserve ${quantity} spots — ${peso(Number(event.price_php || 0) * quantity)}`
+                : `Reserve my spot — ${peso(event.price_php)}`}
             </button>
             {formError && <p className="text-danger text-sm mt-2">{formError}</p>}
           </>
@@ -964,6 +1040,7 @@ export default function EventDetail() {
           {signup?.status !== "going" && registrationNotice}
           {guestFields}
           {customFieldsForm}
+          {signup?.status !== "going" && !isWaitlisted && reg.open && quantityPicker}
           {isWaitlisted ? (
             <div className="border-2 border-ink/20 rounded-2xl p-5 text-center">
               <p className="font-medium mb-1">You're on the waitlist</p>
@@ -986,9 +1063,13 @@ export default function EventDetail() {
                 {guestSigningUp
                   ? "Setting up your account…"
                   : signup?.status === "going"
-                  ? "You're going ✓"
-                  : isFull()
+                  ? myQuantity > 1
+                    ? `You're going ✓ · ${spotsWord(myQuantity)}`
+                    : "You're going ✓"
+                  : isFull(quantity)
                   ? "Join waitlist"
+                  : quantity > 1
+                  ? `We're going (${quantity})`
                   : "I'm going"}
               </button>
               )}

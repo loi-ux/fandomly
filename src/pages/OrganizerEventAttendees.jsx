@@ -44,7 +44,7 @@ export default function OrganizerEventAttendees() {
 
     const { data } = await supabase
       .from("event_signups")
-      .select("attendee_id, status, payment_status, checked_in, pass_email_sent_at, custom_field_responses, waitlisted, proof_of_payment_url, attendee:profiles!event_signups_attendee_id_fkey(display_name, city)")
+      .select("attendee_id, status, quantity, payment_status, checked_in, pass_email_sent_at, custom_field_responses, waitlisted, proof_of_payment_url, attendee:profiles!event_signups_attendee_id_fkey(display_name, city)")
       .eq("event_id", eventId)
       .order("payment_status", { ascending: true });
     setSignups(data ?? []);
@@ -351,9 +351,10 @@ export default function OrganizerEventAttendees() {
 
   function downloadCsv() {
     const fields = event.custom_fields ?? [];
-    const header = ["Name", "Email", "City", ...fields.map((f) => f.label), "Payment", "Checked in"];
+    const header = ["Name", "Spots", "Email", "City", ...fields.map((f) => f.label), "Payment", "Checked in"];
     const rows = activeSignups.map((s) => [
       s.attendee?.display_name ?? "",
+      s.quantity ?? 1,
       contacts[s.attendee_id]?.email ?? "",
       s.attendee?.city ?? "",
       ...fields.map((f) => s.custom_field_responses?.[f.id] ?? ""),
@@ -384,19 +385,26 @@ export default function OrganizerEventAttendees() {
       <p className="text-ink-soft mb-2">₱{event.price_php} entrance · attendee list</p>
 
       {(() => {
+        // Each signup can hold several spots (quantity), so totals add those up.
+        const spots = (list) => list.reduce((n, s) => n + (s.quantity ?? 1), 0);
         const confirmed = signups.filter((s) => s.payment_status === "paid");
         const waitlisted = signups.filter((s) => s.waitlisted);
-        const checkedIn = confirmed.filter((s) => s.checked_in).length;
-        const revenue = confirmed.length * Number(event.price_php || 0);
+        const confirmedSpots = spots(confirmed);
+        const checkedInSpots = spots(confirmed.filter((s) => s.checked_in));
+        const revenue = confirmedSpots * Number(event.price_php || 0);
+        const hasGroups = signups.some((s) => (s.quantity ?? 1) > 1);
         return (
           <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-ink-soft mb-8">
-            <span>{confirmed.length} confirmed</span>
-            <span>{waitlisted.length} waitlisted</span>
+            <span>
+              {confirmedSpots} confirmed
+              {hasGroups && ` (${confirmed.length} ${confirmed.length === 1 ? "registration" : "registrations"})`}
+            </span>
+            <span>{spots(waitlisted)} waitlisted</span>
             <span>{walkins.length} walk-ins</span>
             <span>
-              {confirmed.length ? Math.round((checkedIn / confirmed.length) * 100) : 0}% checked in
+              {confirmedSpots ? Math.round((checkedInSpots / confirmedSpots) * 100) : 0}% checked in
             </span>
-            <span>₱{revenue} revenue</span>
+            <span>₱{revenue.toLocaleString("en-PH")} revenue</span>
           </div>
         );
       })()}
@@ -468,6 +476,11 @@ export default function OrganizerEventAttendees() {
                       <td className="px-3 py-3 text-ink-soft">{i + 1}</td>
                       <td className="px-3 py-3 font-medium whitespace-nowrap sticky left-0 bg-paper">
                         {s.attendee?.display_name ?? "Unknown"}
+                        {(s.quantity ?? 1) > 1 && (
+                          <span className="ml-2 text-xs font-medium px-2 py-0.5 rounded-full bg-sky/15 text-sky align-middle">
+                            ×{s.quantity}
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap">{renderEmail(s) ?? "—"}</td>
                       <td className="px-3 py-3 text-ink-soft whitespace-nowrap">
@@ -508,7 +521,14 @@ export default function OrganizerEventAttendees() {
                   className="flex items-center justify-between border-2 border-ink/10 rounded-2xl px-5 py-4"
                 >
                   <div>
-                    <p className="font-medium">{s.attendee?.display_name ?? "Unknown"}</p>
+                    <p className="font-medium">
+                      {s.attendee?.display_name ?? "Unknown"}
+                      {(s.quantity ?? 1) > 1 && (
+                          <span className="ml-2 text-xs font-medium px-2 py-0.5 rounded-full bg-sky/15 text-sky align-middle">
+                            ×{s.quantity}
+                          </span>
+                        )}
+                    </p>
                     <p className="text-sm text-ink-soft break-all">{renderEmail(s)}</p>
                     {s.attendee?.city && <p className="text-sm text-ink-soft">{s.attendee.city}</p>}
                     {event.custom_fields?.length > 0 && (
@@ -540,7 +560,14 @@ export default function OrganizerEventAttendees() {
                 key={s.attendee_id}
                 className="flex items-center justify-between border-2 border-ink/10 rounded-2xl px-5 py-3"
               >
-                <p className="font-medium">{s.attendee?.display_name ?? "Unknown"}</p>
+                <p className="font-medium">
+                  {s.attendee?.display_name ?? "Unknown"}
+                  {(s.quantity ?? 1) > 1 && (
+                    <span className="ml-2 text-xs font-medium px-2 py-0.5 rounded-full bg-sky/15 text-sky align-middle">
+                      ×{s.quantity}
+                    </span>
+                  )}
+                </p>
                 <button
                   onClick={() => handlePromote(s.attendee_id)}
                   disabled={busyId === s.attendee_id}
